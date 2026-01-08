@@ -19,7 +19,7 @@ $('#searchForm').on('submit', function(e){
 
   if (!res.exists) {
     box.innerHTML = `
-      <p>Nomor <b>${res.number}</b> belum pernah dilaporkan.</p>
+      <p>Belum ada data untuk nomor <b>${res.number}</b>.</p>
       <button onclick="openReportModal('${res.number}')">Laporkan nomor ini</button>
     `;
     return;
@@ -27,9 +27,9 @@ $('#searchForm').on('submit', function(e){
 
   if (res.total === 0) {
     box.innerHTML = `
-      <p>Nomor <b>${res.number}</b> sudah terdaftar.</p>
-      <p>Belum ada laporan.</p>
-      <button onclick="openReportModal('${res.number}')">Tambah laporan</button>
+      <p>Nomor <b>${res.number}</b> sudah ada dalam database kami.</p>
+      <p>Saat ini belum ada laporan positif maupun negatif.</p>
+      <button onclick="openReportModal('${res.number}')">Buat Laporan Baru</button>
     `;
     return;
   }
@@ -37,18 +37,19 @@ $('#searchForm').on('submit', function(e){
   let html = `<p><b>${res.total}</b> total laporan ditemukan:</p><ul>`;
 
   if (res.summary.approved > 0)
-    html += `<li>${res.summary.approved} Laporan yang <b>terbukti</b></li>`;
+    html += `<li>${res.summary.approved} Laporan yang <b>Terbukti</b></li>`;
 
   if (res.summary.pending > 0)
-    html += `<li>${res.summary.pending} Laporan dalam <b>pemeriksaan</b></li>`;
+    html += `<li>${res.summary.pending} Laporan dalam <b>Proses Pemeriksaan</b></li>`;
 
   if (res.summary.rejected > 0)
-    html += `<li>${res.summary.rejected} Laporan dengan <b>bukti lemah</b></li>`;
+    html += `<li>${res.summary.rejected} Laporan dengan <b>Bukti yang sangat lemah</b></li>`;
 
   html += `</ul>
     <a href="/list.php?number=${res.number}">
       Lihat detail seluruh laporan
     </a>
+	<p><button onclick="openReportModal('${res.number}')">Buat Laporan Baru</button></p>
   `;
 
   box.innerHTML = html;
@@ -86,7 +87,7 @@ $('#reportForm').on('submit', function(e){
   const description = $('#description').val().trim();
 
   if(description.length < 10){
-    alert("Deskripsi terlalu singkat. Sertakan kronologi / konteks.");
+    alert("Deskripsi terlalu singkat. Mohon Sertakan kronologi / konteks.");
     return;
   }
 
@@ -103,7 +104,7 @@ $('#reportForm').on('submit', function(e){
       $('#modal').addClass('hidden');
       $('#result').html(`
         <b>Terima kasih!</b><br>
-        Laporan kamu telah disimpan dan akan membantu pengguna lain.
+        Laporan anda berhasil dikirim. System kami akan menjalankan proses verifikasi dan menetapkan hasil akhir penilaian dalam beberapa waktu kedepan.
       `);
     },
     error: function(){
