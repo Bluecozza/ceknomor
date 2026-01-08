@@ -77,50 +77,47 @@ function fetch_reports_for_number(string $phone_number): array
 //////////////////////////////
 function get_number_reputation(string $phone_number) {
 
-    // 1. Cache
     $cache_key = 'rep:number:' . md5($phone_number);
 
-if ($cached = cache_get($cache_key)) {
-    if (!empty($cached['last_calculated'])) {
+    // 1. Cache
+    if ($cached = cache_get($cache_key)) {
         return $cached;
     }
-}
-
 
     $db = db();
 
-	// 2. DB
-	$stmt = $db->prepare(
-		"SELECT * FROM phone_reputation WHERE phone_number = ?"
-	);
-	$stmt->execute([$phone_number]);
-	$row = $stmt->fetch(PDO::FETCH_ASSOC);
+    // ambil laporan approved TERBARU
+    $reports = fetch_reports_for_number($phone_number);
+    $report_count = count($reports);
 
-	// hitung jumlah laporan terbaru
-	$current_reports = fetch_reports_for_number($phone_number);
-	$current_count   = count($current_reports);
+    // 2. DB
+    $stmt = $db->prepare(
+        "SELECT * FROM phone_reputation WHERE phone_number = ?"
+    );
+    $stmt->execute([$phone_number]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-	if (
-		$row &&
-		$row['report_count'] == $current_count &&
-		strtotime($row['last_calculated']) > time() - 3600
-	) {
-		cache_set($cache_key, $row, 3600);
-		return $row;
-	}
+    // validasi DB cache
+    if (
+        $row &&
+        $row['report_count'] == $report_count &&
+        strtotime($row['last_calculated']) > time() - 3600
+    ) {
+        cache_set($cache_key, $row, 3600);
+        return $row;
+    }
 
     // 3. Recalculate
-    $reports = fetch_reports_for_number($phone_number);
     $rep = reputation_for_number($reports);
 
     $data = [
-        'phone_number' => $phone_number,
-        'score' => $rep['score'],
-        'label' => $rep['label'],
-        'confidence' => $rep['confidence'],
-        'report_count' => count($reports),
+        'phone_number'    => $phone_number,
+        'score'           => $rep['score'],
+        'label'           => $rep['label'],
+        'confidence'      => $rep['confidence'],
+        'report_count'    => $report_count,
         'last_calculated' => date('Y-m-d H:i:s'),
-        'updated_at' => date('Y-m-d H:i:s')
+        'updated_at'      => date('Y-m-d H:i:s')
     ];
 
     // 4. Upsert
@@ -139,7 +136,7 @@ if ($cached = cache_get($cache_key)) {
     $stmt->execute($data);
 
     // 5. Cache
-cache_set($cache_key, $data, 3600);
+    cache_set($cache_key, $data, 3600);
 
     return $data;
 }
