@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../core/db.php';
 require_once __DIR__ . '/../core/normalize.php';
 require_once __DIR__ . '/../core/response.php';
+require_once __DIR__ . '/../modules/reputation.php';
 
 $raw = $_GET['number'] ?? '';
 if (!$raw) {
@@ -11,7 +12,7 @@ if (!$raw) {
 
 $number = normalize_number($raw);
 $pdo = db();
-
+$rep=get_number_reputation($number);
 /**
  * Ambil ID nomor
  */
@@ -38,8 +39,12 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$row['id']]);
 
+
 json([
-    "status"  => "ok",
-    "number"  => $number,
-    "reports" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+    "status"     => "ok",
+    "number"     => $number,
+    "risk"       => $rep['label'],
+    "confidence" => $rep['confidence'],
+    "reports"    => $stmt->fetchAll(PDO::FETCH_ASSOC)
 ]);
+

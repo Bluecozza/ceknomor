@@ -8,7 +8,7 @@ function reputation_for_number(array $reports) {
         'telemarketer' => 2,
         'spam' => 3,
         'scam' => 5,
-        'fraud' => 7,
+        'penipuan' => 7,
         'robocall' => 4
     ];
 
@@ -20,10 +20,10 @@ function reputation_for_number(array $reports) {
         $days = (time() - strtotime($r['created_at'])) / 86400;
 
         $decay = match (true) {
-            $days <= 7 => 1.0,
-            $days <= 30 => 0.8,
-            $days <= 90 => 0.6,
-            $days <= 180 => 0.4,
+            $days <= 30 => 1.0,
+            $days <= 90 => 0.8,
+            $days <= 180 => 0.6,
+            $days <= 360 => 0.4,
             default => 0.2
         };
 
@@ -32,36 +32,76 @@ function reputation_for_number(array $reports) {
 
     $score = round(log($total_score + 1) * 20);
 
-    $label = $score < 30 ? 'safe'
-           : ($score < 70 ? 'suspicious' : 'high_risk');
+    $label = $score < 5 ? 'safe'
+           : ($score < 30 ? 'suspicious' : 'high_risk');
 
     $confidence = min(100, round((1 - exp(-$total_reports / 10)) * 100));
 
     return compact('score', 'label', 'confidence');
 }
 ////////////////////////////
-function get_number_reputation(string $phone_number) {
-    $cache = cache_instance();
-    $cache_key = 'rep:number:' . md5($phone_number);
-
-    // 1. Cache
-    if ($data = $cache->get($cache_key)) {
-        return $data;
-    }
-
+function fetch_reports_for_number(string $phone_number): array
+{
     $db = db();
 
-    // 2. DB
-    $stmt = $db->prepare(
-        "SELECT * FROM phone_reputation WHERE phone_number = ?"
-    );
+    // ambil number_id
+    $stmt = $db->prepare("SELECT id FROM numbers WHERE number = ?");
     $stmt->execute([$phone_number]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($row && strtotime($row['last_calculated']) > time() - 3600) {
-        $cache->set($cache_key, $row, 3600);
-        return $row;
+    if (!$row) {
+        return [];
     }
+
+    // ambil laporan yang relevan untuk reputasi
+    $stmt = $db->prepare("
+        SELECT 
+            category AS type,
+            created_at
+        FROM reports
+        WHERE number_id = ?
+          AND status = 'approved'
+    ");
+
+    $stmt->execute([$row['id']]);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+//////////////////////////////
+function get_number_reputation(string $phone_number) {
+
+    // 1. Cache
+    $cache_key = 'rep:number:' . md5($phone_number);
+
+if ($cached = cache_get($cache_key)) {
+    if (!empty($cached['last_calculated'])) {
+        return $cached;
+    }
+}
+
+
+    $db = db();
+
+	// 2. DB
+	$stmt = $db->prepare(
+		"SELECT * FROM phone_reputation WHERE phone_number = ?"
+	);
+	$stmt->execute([$phone_number]);
+	$row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+	// hitung jumlah laporan terbaru
+	$current_reports = fetch_reports_for_number($phone_number);
+	$current_count   = count($current_reports);
+
+	if (
+		$row &&
+		$row['report_count'] == $current_count &&
+		strtotime($row['last_calculated']) > time() - 3600
+	) {
+		cache_set($cache_key, $row, 3600);
+		return $row;
+	}
 
     // 3. Recalculate
     $reports = fetch_reports_for_number($phone_number);
@@ -93,7 +133,7 @@ function get_number_reputation(string $phone_number) {
     $stmt->execute($data);
 
     // 5. Cache
-    $cache->set($cache_key, $data, 3600);
+cache_set($cache_key, $data, 3600);
 
     return $data;
 }

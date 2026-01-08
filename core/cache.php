@@ -54,3 +54,14 @@ function cache_key_number_reports($number){
 function cache_key_number_reputation(string $number): string {
     return 'rep:number:' . md5($number);
 }
+
+/**
+ * Reset semua cache yang berkaitan dengan nomor
+ */
+function reset_all_number_cache(string $number): void
+{
+    cache_del(phone_cache_key($number));
+    cache_del(cache_key_number_summary($number));
+    cache_del(cache_key_number_reports($number));
+    cache_del('rep:number:' . md5($number));
+}

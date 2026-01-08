@@ -116,9 +116,7 @@ try {
 /**
  * Cache invalidation
  */
-/**
- * Cache invalidation
- */
+reset_all_number_cache($number);
 cache_del(phone_cache_key($number));
 cache_del(cache_key_number_summary($number));
 cache_del(cache_key_number_reports($number));

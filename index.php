@@ -30,9 +30,17 @@
       <label>Kategori</label>
       <select id="category">
         <option value="penipuan">Penipuan</option>
+        <option value="fitnah">Fitnah</option>
+        <option value="rasis">Rasis</option>
+        <option value="pencemaran">Pencemaran Nama Baik</option>
+        <option value="kekerasan">Kejahatan Kekerasan</option>
+        <option value="perdagangan">Perdagangan Palsu</option>
+        <option value="narkoba">Narkotika</option>
+        <option value="pencurian">Pencurian</option>
+        <option value="perampokan">Perampokan/Begal dengan senjata</option>
         <option value="spam">Spam / Iklan</option>
-        <option value="safe">Aman / Valid</option>
-        <option value="unknown">Tidak yakin</option>
+        <option value="bully">Bullying / Perundungan</option>
+        <option value="unknown">Lainnya</option>
       </select>
 
       <label>Deskripsi Laporan</label>

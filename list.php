@@ -65,6 +65,34 @@
   background:#fef3c7;
   color:#92400e;
 }
+#
+.badge-risk {
+  font-size:11px;
+  font-weight:600;
+  padding:4px 8px;
+  border-radius:999px;
+}
+
+.risk-safe {
+  background:#e7f8ee;
+  color:#166534;
+}
+
+.risk-suspicious {
+  background:#fff4d6;
+  color:#92400e;
+}
+
+.risk-high {
+  background:#ffe2e2;
+  color:#991b1b;
+}
+.card-footer {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:6px;
+}
 
 </style>
 </head>
@@ -102,9 +130,26 @@ $.get('/api.php', { action:'report.list', number:number }, function(res){
     return;
   }
 
-  $('#meta').html(`
-    <p>Total laporan: <b>${res.reports.length}</b></p>
-  `);
+let riskLabel = "AMAN";
+let riskClass = "badge-risk risk-safe";
+
+if(res.risk === "suspicious"){
+  riskLabel = "MENCURIGAKAN";
+  riskClass = "badge-risk risk-suspicious";
+} else if(res.risk === "high_risk"){
+  riskLabel = "BERISIKO TINGGI";
+  riskClass = "badge-risk risk-high";
+}
+
+$('#meta').html(`
+  <p style="display:flex;align-items:center;gap:8px">
+    Total laporan: <b>${res.reports.length}</b>
+    <span class="${riskClass}">
+      ${riskLabel} • ${res.confidence}%
+    </span>
+  </p>
+`);
+
 
   let html = "";
 
@@ -141,7 +186,10 @@ res.reports.forEach(r => {
       </div>
 
       <p>${r.description}</p>
+	      <div class="card-footer">
       <small>${r.created_at}</small>
+
+    </div>
     </div>
   `;
 });
