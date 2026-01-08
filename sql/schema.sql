@@ -11,11 +11,11 @@ CREATE TABLE numbers (
 CREATE TABLE reports (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   number_id BIGINT UNSIGNED NOT NULL,
-  category ENUM('safe','spam','penipuan','iklan','unknown') DEFAULT 'unknown',
+  category VARCHAR(32)('penipuan','fitnah','rasis','pencemaran','kekerasan','perdagangan','narkoba','pencurian','perampokan','spam','bully','unknown') DEFAULT 'unknown',
   description TEXT,
   reporter_hash CHAR(64) NULL,
   source ENUM('manual','batch','csv','api') DEFAULT 'manual',
-  status ENUM('publish','pending','hidden') DEFAULT 'publish',
+  status ENUM('approved','pending','rejected') DEFAULT 'publish',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_reports_numbers
     FOREIGN KEY (number_id) REFERENCES numbers(id)

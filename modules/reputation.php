@@ -4,12 +4,18 @@ require_once __DIR__ . "/../core/cache.php";
 
 function reputation_for_number(array $reports) {
     $REPORT_WEIGHT = [
-        'missed_call' => 1,
-        'telemarketer' => 2,
-        'spam' => 3,
-        'scam' => 5,
-        'penipuan' => 7,
-        'robocall' => 4
+		'penipuan' => 7,
+		'fitnah' => 3,
+		'rasis' => 3,
+		'pencemaran' => 3,
+		'kekerasan' => 3,
+		'perdagangan' => 7,
+		'narkoba' => 7,
+		'pencurian' => 1,
+		'perampokan' => 7,
+		'spam' => 3,
+		'bully' => 3,
+		'unknown' => 0
     ];
 
     $total_score = 0;
