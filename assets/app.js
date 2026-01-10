@@ -43,7 +43,7 @@ $('#searchForm').on('submit', function(e){
     html += `<li>${res.summary.pending} Laporan dalam <b>Proses Pemeriksaan</b></li>`;
 
   if (res.summary.rejected > 0)
-    html += `<li>${res.summary.rejected} Laporan dengan <b>Bukti yang sangat lemah</b></li>`;
+    html += `<li>${res.summary.rejected} Laporan <b>Ditolak</b></li>`;
 
   html += `</ul>
     <a href="/list.php?number=${res.number}">

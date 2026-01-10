@@ -170,7 +170,7 @@ res.reports.forEach(r => {
     statusLabel = "Terbukti";
     statusClass = "badge badge-status badge-valid";
   } else if(r.status === "rejected"){
-    statusLabel = "Bukti lemah";
+    statusLabel = "Tidak terbukti / Laporan Palsu";
     statusClass = "badge badge-status badge-weak";
   }
 

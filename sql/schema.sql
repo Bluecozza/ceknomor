@@ -42,3 +42,28 @@ CREATE TABLE phone_reputation (
     last_calculated DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
 );
+
+CREATE TABLE admins (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    last_login DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE admin_remember_tokens (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX (admin_id),
+  UNIQUE (token_hash)
+);
+
+CREATE TABLE admin_login_attempts (
+  ip VARCHAR(45) PRIMARY KEY,
+  attempts INT DEFAULT 0,
+  last_attempt DATETIME
+);
+

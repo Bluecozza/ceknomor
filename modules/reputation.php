@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../core/db.php';
 require_once __DIR__ . "/../core/cache.php";
 
 function reputation_for_number(array $reports) {
