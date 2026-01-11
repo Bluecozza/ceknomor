@@ -156,11 +156,13 @@ $('#meta').html(`
 //
 res.reports.forEach(r => {
 
-  // badge kategori
-  let badgeClass = "badge";
-  if(r.category === "penipuan") badgeClass += " badge-penipuan";
-  if(r.category === "spam") badgeClass += " badge-spam";
-  if(r.category === "safe") badgeClass += " badge-safe";
+const category = r.category ?? "unknown";
+
+let badgeClass = "badge";
+if(category === "penipuan") badgeClass += " badge-penipuan";
+else if(category === "spam") badgeClass += " badge-spam";
+else badgeClass += " badge-safe";
+
 
   // badge status
   let statusLabel = "Dalam pemeriksaan";
@@ -177,9 +179,10 @@ res.reports.forEach(r => {
   html += `
     <div class="card">
       <div class="badge-row">
-        <div class="${badgeClass}">
-          ${r.category.toUpperCase()}
-        </div>
+<div class="${badgeClass}">
+  ${category.toUpperCase()}
+</div>
+
         <div class="${statusClass}">
           ${statusLabel}
         </div>

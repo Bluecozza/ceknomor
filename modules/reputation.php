@@ -15,7 +15,7 @@ function reputation_for_number(array $reports) {
 		'perampokan' => 7,
 		'spam' => 3,
 		'bully' => 3,
-		'unknown' => 0
+		'safe' => 0
     ];
 
     $total_score = 0;
@@ -39,7 +39,7 @@ function reputation_for_number(array $reports) {
     $score = round(log($total_score + 1) * 20);
 
     $label = $score < 5 ? 'safe'
-           : ($score < 20 ? 'suspicious' : 'high_risk');
+           : ($score < 30 ? 'suspicious' : 'high_risk');
 
     $confidence = min(100, round((1 - exp(-$total_reports / 10)) * 100));
 

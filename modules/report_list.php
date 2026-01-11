@@ -17,23 +17,28 @@ $rep=get_number_reputation($number);
 /**
  * Ambil semua laporan (SEMUA STATUS)
  */
-    $stmt = $db->prepare("
-        SELECT
-            r.id,
-            r.title,
-            r.description,
-            r.created_at,
-            GROUP_CONCAT(DISTINCT c.name SEPARATOR ', ') AS categories
-        FROM report_phones rp
-        JOIN reports r ON r.id = rp.report_id
-        LEFT JOIN report_categories rc ON rc.report_id = r.id
-        LEFT JOIN categories c ON c.id = rc.category_id
-        WHERE rp.phone_number = ?
-          AND r.status = 'approved'
-        GROUP BY r.id
-        ORDER BY r.created_at DESC
-        LIMIT 50
-    ");
+$stmt = $db->prepare("
+    SELECT
+        r.id,
+        r.title,
+        r.description,
+        r.created_at,
+        r.status,
+        COALESCE(
+          GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ','),
+          'unknown'
+        ) AS category
+    FROM report_phones rp
+    JOIN reports r ON r.id = rp.report_id
+    LEFT JOIN report_categories rc ON rc.report_id = r.id
+    LEFT JOIN categories c ON c.id = rc.category_id
+    WHERE rp.phone_number = ?
+      AND r.status = 'approved'
+    GROUP BY r.id, r.status, r.created_at
+    ORDER BY r.created_at DESC
+    LIMIT 50
+");
+
 $stmt->execute([$number]);
 
 
