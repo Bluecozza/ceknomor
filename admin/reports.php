@@ -1,5 +1,5 @@
-<?php require_once __DIR__ . '/layout/header.php'; ?>
-<?php require_once __DIR__ . '/layout/sidebar.php'; ?>
+<?php require_once __DIR__ . '/_header.php'; ?>
+<?php require_once __DIR__ . '/_sidebar.php'; ?>
 
 <div class="content-wrapper p-3">
 
@@ -32,8 +32,8 @@
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <!-- DataTables -->
-<script src="plugins/datatables/jquery.dataTables.min.js"></script>
-<script src="plugins/datatables-bs4/js/dataTables.bootstrap4.min.js"></script>
+<script src="../assets/plugins/datatables/jquery.dataTables.min.js"></script>
+<script src="../assets/plugins/datatables-bs4/js/dataTables.bootstrap4.min.js"></script>
 
 <script>
 let table;
@@ -49,44 +49,42 @@ function initTable(status){
   }
 
   table = $('#reportsTable').DataTable({
-    processing:true,
-    serverSide:true,
-    pageLength:10,
-    ajax:{
-      url:'/api/admin.report.datatable.php',
-      type:'GET',
-      data:d=>{
-        d.status = $('#filter').val();
+  processing: true,
+  serverSide: true,
+  ajax: {
+    url: '/api/admin.report.datatable.php',
+    data: function (d) {
+      d.status = $('#filter').val();
+    }
+  },
+  columns: [
+    {
+      data: 'numbers',
+      render: function (data) {
+        return data
+          .split(',')
+          .map(n => `<span class="badge badge-primary mr-1">${n}</span>`)
+          .join(' ');
       }
     },
-    columns:[
-      { data:'number' },
-      { 
-        data:'category',
-        render:c=>{
-          const map={
-            penipuan:'danger',
-            spam:'warning',
-            safe:'success'
-          };
-          return `<span class="badge badge-${map[c]||'secondary'}">${c}</span>`;
-        }
-      },
-      { data:'description' },
-      { data:'created_at' },
-      {
-        data:'id',
-        orderable:false,
-        searchable:false,
-        render:id=>`
-          <button class="btn btn-sm btn-success"
-            onclick="setStatus(${id},'approved')">✔</button>
-          <button class="btn btn-sm btn-danger"
-            onclick="setStatus(${id},'rejected')">✖</button>
-        `
-      }
-    ]
-  });
+    {
+      data: 'category',
+      render: data => `<span class="badge badge-danger">${data}</span>`
+    },
+    { data: 'description' },
+    { data: 'created_at' },
+    {
+      data: 'id',
+      orderable: false,
+      searchable: false,
+      render: id => `
+        <button class="btn btn-success btn-sm" onclick="setStatus(${id},'approved')">Approve</button>
+        <button class="btn btn-danger btn-sm" onclick="setStatus(${id},'rejected')">Reject</button>
+      `
+    }
+  ]
+});
+
 }
 
 function setStatus(id,status){
@@ -97,7 +95,11 @@ function setStatus(id,status){
   }).then(()=>table.ajax.reload(null,false));
 }
 
-$('#filter').on('change',()=>table.ajax.reload());
+$('#filter').on('change', function () {
+  if (table) {
+    table.ajax.reload();
+  }
+});
 initTable('pending');
 </script>
 
@@ -109,4 +111,4 @@ initTable('pending');
 </div>
 
 
-<?php require_once __DIR__ . '/layout/footer.php'; ?>
+<?php require_once __DIR__ . '/_footer.php'; ?>

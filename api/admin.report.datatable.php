@@ -19,57 +19,61 @@ if(!in_array($status,$allowed,true)){
 }
 
 // total
-$total = $db->prepare("
+$stmt = $db->prepare("
   SELECT COUNT(*) 
-  FROM reports r
-  WHERE r.status = ?
+  FROM reports 
+  WHERE status = ?
 ");
-$total->execute([$status]);
-$recordsTotal = $total->fetchColumn();
+$stmt->execute([$status]);
+$recordsTotal = (int)$stmt->fetchColumn();
 
 // filter
 $where = "WHERE r.status = :status";
-$params = ['status'=>$status];
+$params = ['status' => $status];
 
-if($search){
+if ($search) {
   $where .= " AND (
-    n.number LIKE :s OR
-    r.category LIKE :s OR
+    rp.phone_number LIKE :s OR
     r.description LIKE :s
   )";
   $params['s'] = "%$search%";
 }
 
+
 // filtered count
-$count = $db->prepare("
-  SELECT COUNT(*) 
+$stmt = $db->prepare("
+  SELECT COUNT(DISTINCT r.id)
   FROM reports r
-  JOIN numbers n ON n.id=r.number_id
+  JOIN report_phones rp ON rp.report_id = r.id
   $where
 ");
-$count->execute($params);
-$recordsFiltered = $count->fetchColumn();
+$stmt->execute($params);
+$recordsFiltered = (int)$stmt->fetchColumn();
+
 
 // data
 $stmt = $db->prepare("
-  SELECT 
-    r.id,
-    n.number,
-    r.category,
-    r.description,
-    r.created_at
-  FROM reports r
-  JOIN numbers n ON n.id=r.number_id
-  $where
-  ORDER BY r.created_at DESC
-  LIMIT :start,:len
+  SELECT
+  r.id,
+  GROUP_CONCAT(DISTINCT rp.phone_number SEPARATOR ', ') AS numbers,
+  GROUP_CONCAT(DISTINCT c.name SEPARATOR ', ') AS category,
+  r.description,
+  r.created_at
+FROM reports r
+JOIN report_phones rp ON rp.report_id = r.id
+LEFT JOIN report_categories rc ON rc.report_id = r.id
+LEFT JOIN categories c ON c.id = rc.category_id
+$where
+GROUP BY r.id
+ORDER BY r.created_at DESC
+LIMIT :start, :len
 ");
 
-foreach($params as $k=>$v){
-  $stmt->bindValue(":$k",$v);
+foreach ($params as $k => $v) {
+  $stmt->bindValue(":$k", $v);
 }
-$stmt->bindValue(':start',$start,PDO::PARAM_INT);
-$stmt->bindValue(':len',$length,PDO::PARAM_INT);
+$stmt->bindValue(':start', $start, PDO::PARAM_INT);
+$stmt->bindValue(':len', $length, PDO::PARAM_INT);
 $stmt->execute();
 
 json([

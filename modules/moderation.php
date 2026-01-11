@@ -5,7 +5,7 @@ require_once __DIR__ . '/reputation.php';
 
 function update_report_status(int $report_id, string $status): bool
 {
-    if (!in_array($status, ['approved', 'rejected'])) {
+    if (!in_array($status, ['approved', 'rejected'], true)) {
         return false;
     }
 
@@ -13,39 +13,46 @@ function update_report_status(int $report_id, string $status): bool
     $db->beginTransaction();
 
     try {
-        // ambil number_id
-        $stmt = $db->prepare("
-            SELECT r.number_id, n.number
-            FROM reports r
-            JOIN numbers n ON n.id = r.number_id
-            WHERE r.id = ?
-        ");
+        // pastikan report ada
+        $stmt = $db->prepare("SELECT id FROM reports WHERE id = ?");
         $stmt->execute([$report_id]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$row) {
-            throw new Exception("report_not_found");
+        if (!$stmt->fetch()) {
+            throw new Exception('report_not_found');
         }
 
         // update status laporan
-        $db->prepare("
+        $stmt = $db->prepare("
             UPDATE reports
             SET status = ?
             WHERE id = ?
-        ")->execute([$status, $report_id]);
+        ");
+        $stmt->execute([$status, $report_id]);
 
-        // hapus cache reputasi
-        $cache_key = 'rep:number:' . md5($row['number']);
-        cache_del($cache_key);
+        // ambil semua nomor pada laporan
+        $stmt = $db->prepare("
+            SELECT phone_number
+            FROM report_phones
+            WHERE report_id = ?
+        ");
+        $stmt->execute([$report_id]);
+        $phones = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-        // force recalc reputasi
-        get_number_reputation($row['number']);
+        // recalc reputasi per nomor
+        foreach ($phones as $phone) {
+            // hapus cache
+            $cache_key = 'rep:number:' . md5($phone);
+            cache_del($cache_key);
+
+            // hitung ulang reputasi
+            get_number_reputation($phone);
+        }
 
         $db->commit();
         return true;
 
     } catch (Throwable $e) {
         $db->rollBack();
+        error_log('[update_report_status] ' . $e->getMessage());
         return false;
     }
 }

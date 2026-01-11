@@ -39,7 +39,7 @@ function reputation_for_number(array $reports) {
     $score = round(log($total_score + 1) * 20);
 
     $label = $score < 5 ? 'safe'
-           : ($score < 30 ? 'suspicious' : 'high_risk');
+           : ($score < 20 ? 'suspicious' : 'high_risk');
 
     $confidence = min(100, round((1 - exp(-$total_reports / 10)) * 100));
 
@@ -50,29 +50,22 @@ function fetch_reports_for_number(string $phone_number): array
 {
     $db = db();
 
-    // ambil number_id
-    $stmt = $db->prepare("SELECT id FROM numbers WHERE number = ?");
-    $stmt->execute([$phone_number]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$row) {
-        return [];
-    }
-
-    // ambil laporan yang relevan untuk reputasi
     $stmt = $db->prepare("
-        SELECT 
-            category AS type,
-            created_at
-        FROM reports
-        WHERE number_id = ?
-          AND status = 'approved'
+        SELECT
+            c.name AS type,
+            r.created_at
+        FROM report_phones rp
+        JOIN reports r ON r.id = rp.report_id
+        LEFT JOIN report_categories rc ON rc.report_id = r.id
+        LEFT JOIN categories c ON c.id = rc.category_id
+        WHERE rp.phone_number = ?
+          AND r.status = 'approved'
     ");
 
-    $stmt->execute([$row['id']]);
-
+    $stmt->execute([$phone_number]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
 
 //////////////////////////////
 function get_number_reputation(string $phone_number) {

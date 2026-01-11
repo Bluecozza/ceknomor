@@ -11,33 +11,30 @@ if (!$raw) {
 }
 
 $number = normalize_number($raw);
-$pdo = db();
+$db = db();
 $rep=get_number_reputation($number);
-/**
- * Ambil ID nomor
- */
-$stmt = $pdo->prepare("SELECT id FROM numbers WHERE number = ?");
-$stmt->execute([$number]);
-$row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$row) {
-    json([
-        "status"  => "ok",
-        "number"  => $number,
-        "reports" => []
-    ]);
-}
 
 /**
  * Ambil semua laporan (SEMUA STATUS)
  */
-$stmt = $pdo->prepare("
-    SELECT category, description, status, created_at
-    FROM reports
-    WHERE number_id = ?
-    ORDER BY created_at DESC
-");
-$stmt->execute([$row['id']]);
+    $stmt = $db->prepare("
+        SELECT
+            r.id,
+            r.title,
+            r.description,
+            r.created_at,
+            GROUP_CONCAT(DISTINCT c.name SEPARATOR ', ') AS categories
+        FROM report_phones rp
+        JOIN reports r ON r.id = rp.report_id
+        LEFT JOIN report_categories rc ON rc.report_id = r.id
+        LEFT JOIN categories c ON c.id = rc.category_id
+        WHERE rp.phone_number = ?
+          AND r.status = 'approved'
+        GROUP BY r.id
+        ORDER BY r.created_at DESC
+        LIMIT 50
+    ");
+$stmt->execute([$number]);
 
 
 json([

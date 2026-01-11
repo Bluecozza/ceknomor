@@ -6,28 +6,26 @@ require_once __DIR__ . '/../core/cache.php';
 
 function search_number(string $input): array
 {
-    $pdo = db();
+    $db = db();
 
-    $number = normalize_number($input);
+    $number   = normalize_number($input);
     $cacheKey = phone_cache_key($number);
 
+    // ===== CACHE =====
     if ($cached = cache_get($cacheKey)) {
         return $cached;
     }
 
-    /**
-     * Cari nomor
-     */
-    $stmt = $pdo->prepare("
-        SELECT id
-        FROM numbers
-        WHERE number = ?
+    // ===== CEK APAKAH NOMOR ADA =====
+    $stmt = $db->prepare("
+        SELECT 1
+        FROM report_phones
+        WHERE phone_number = ?
         LIMIT 1
     ");
     $stmt->execute([$number]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$row) {
+    if (!$stmt->fetchColumn()) {
         return [
             "number"  => $number,
             "exists"  => false,
@@ -40,16 +38,17 @@ function search_number(string $input): array
         ];
     }
 
-    /**
-     * Hitung laporan per status
-     */
-    $stmt = $pdo->prepare("
-        SELECT status, COUNT(*) AS total
-        FROM reports
-        WHERE number_id = ?
-        GROUP BY status
+    // ===== HITUNG LAPORAN PER STATUS =====
+    $stmt = $db->prepare("
+        SELECT
+            r.status,
+            COUNT(DISTINCT r.id) AS total
+        FROM report_phones rp
+        JOIN reports r ON r.id = rp.report_id
+        WHERE rp.phone_number = ?
+        GROUP BY r.status
     ");
-    $stmt->execute([$row['id']]);
+    $stmt->execute([$number]);
 
     $summary = [
         "approved" => 0,
@@ -58,9 +57,9 @@ function search_number(string $input): array
     ];
 
     $total = 0;
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
-        $summary[$r['status']] = (int) $r['total'];
-        $total += (int) $r['total'];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $summary[$row['status']] = (int)$row['total'];
+        $total += (int)$row['total'];
     }
 
     $response = [
