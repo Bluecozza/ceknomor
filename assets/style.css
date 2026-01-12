@@ -1,5 +1,5 @@
 body {
-  background:#fafafa;
+  background:#e1e1e1;
   font-family:system-ui, Arial;
 }
 
@@ -11,6 +11,7 @@ body {
 }
 
 input {
+  background-color: #fff;
   width:100%;
   padding:12px;
   font-size:16px;
@@ -25,6 +26,8 @@ button {
   border:0;
   font-weight:600;
   cursor:pointer;
+  background-color: #000002;
+  color: #fdf5ee;
 }
 .modal.hidden { display:none }
 
