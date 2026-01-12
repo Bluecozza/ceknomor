@@ -65,13 +65,8 @@ $('#searchForm').on('submit', function(e){
 
 
 function openReportModal(number){
-  $('#modalNumber').text(number);
-  $('#description').val('');
-  $('#category').val('penipuan');
-  $('#modal').removeClass('hidden');
+  location.href = 'report_new.php?in='+number;
 
-  // simpan nomor ke state sementara
-  $('#modal').data('number', number);
 }
 
 $('#cancelModal, .modal-bg').on('click', function(){

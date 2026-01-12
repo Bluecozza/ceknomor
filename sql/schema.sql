@@ -24,7 +24,7 @@ INSERT INTO categories (name, weight) VALUES
 ('pencurian', 4),
 ('perampokan', 7),
 ('bully', 3),
-('unknown', 0);
+('other', 0);
 
 CREATE TABLE reports (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -80,8 +80,27 @@ CREATE TABLE report_bank_accounts (
   report_id BIGINT UNSIGNED NOT NULL,
   bank_name VARCHAR(50) NOT NULL,
   account_number VARCHAR(50) NOT NULL,
+  bank_type VARCHAR(50) NOT NULL,
   FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+INSERT INTO report_bank_accounts (report_id, bank_name, account_number, bank_type) VALUES
+(1,'contoh',00100,"BRI"),
+(1,'contoh',00100,"BNI"),
+(1,'contoh',00100,"BCA"),
+(1,'contoh',00100,"MANDIRI"),
+(1,'contoh',00100,"BTN"),
+(1,'contoh',00100,"BSI"),
+(1,'contoh',00100,"PERMATA"),
+(1,'contoh',00100,"SeaBANK"),
+(1,'contoh',00100,"DANA"),
+(1,'contoh',00100,"OVO"),
+(1,'contoh',00100,"GOPAY"),
+(1,'contoh',00100,"Shopee"),
+(1,'contoh',00100,"LinkAJA"),
+(1,'contoh',00100,"Paypal"),
+(1,'contoh',00100,"BTPN"),
+(1,'contoh',00100,"Lainnya");
+
 
 CREATE TABLE report_attachments (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
