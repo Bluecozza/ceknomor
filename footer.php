@@ -1,7 +1,8 @@
-<footer class="main-footer">
-  <strong>Spam Detector</strong>
-</footer>
-
+        </div>
+        <!-- /.row -->
+      </div><!-- /.container-fluid -->
+    </section>
+</div>
 </div>
 
 <!-- jQuery -->

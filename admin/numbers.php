@@ -1,5 +1,5 @@
-<?php require_once __DIR__ . '/layout/header.php'; ?>
-<?php require_once __DIR__ . '/layout/sidebar.php'; ?>
+<?php require_once __DIR__ . '/_header.php'; ?>
+<?php require_once __DIR__ . '/_sidebar.php'; ?>
 <div class="content-wrapper p-3">
 
 <section class="content-header">
@@ -60,4 +60,4 @@ load();
 </section>
 
 </div>
-<?php require_once __DIR__ . '/layout/footer.php'; ?>
+<?php require_once __DIR__ . '/_footer.php'; ?>

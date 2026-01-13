@@ -28,5 +28,8 @@
 </head>
 <body class="hold-transition sidebar-mini layout-fixed">
 <div class="wrapper">
-
+<div class="content-wrapper">
+    <section class="content">
+      <div class="container-fluid">
+        <div class="row">
 
