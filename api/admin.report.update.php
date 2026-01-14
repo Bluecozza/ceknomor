@@ -18,3 +18,5 @@ if (!update_report_status($id, $status)) {
 }
 
 json(['status' => 'ok']);
+
+///////////////////////

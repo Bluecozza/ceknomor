@@ -79,12 +79,16 @@ function initTable(status){
       searchable: false,
       render: id => `
         <button class="btn btn-success btn-sm" onclick="setStatus(${id},'approved')">Approve</button>
-        <button class="btn btn-danger btn-sm" onclick="setStatus(${id},'rejected')">Reject</button>
+		<button class="btn btn-warning btn-sm" onclick="editReport(${id})">Edit</button>
+		<button class="btn btn-danger btn-sm" onclick="deleteReport(${id})">Delete</button>
       `
     }
   ]
 });
 
+}
+function editReport(id){
+  alert('Form edit bisa pakai modal (title, desc, kategori)');
 }
 
 function setStatus(id,status){
@@ -94,6 +98,18 @@ function setStatus(id,status){
     body:JSON.stringify({id,status})
   }).then(()=>table.ajax.reload(null,false));
 }
+
+function deleteReport(id){
+  if(!confirm('Hapus laporan ini?')) return;
+
+  fetch('/api/admin.report.delete.php',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id})
+  }).then(r=>r.json())
+    .then(()=>table.ajax.reload(null,false));
+}
+
 
 $('#filter').on('change', function () {
   if (table) {

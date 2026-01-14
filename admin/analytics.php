@@ -1,17 +1,6 @@
-<?php
-require_once __DIR__ . '/../core/admin_auth.php';
-if (!admin_logged_in()) {
-    header("Location: /admin/login.php");
-    exit;
-}
-?><!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width">
-<title>Admin – Analytics</title>
-<link rel="stylesheet" href="/assets/style.css">
-</head>
-<body>
+<?php require_once __DIR__ . '/_header.php'; ?>
+<?php require_once __DIR__ . '/_sidebar.php'; ?>
+<div class="content-wrapper p-3">
 
 <h2>Analytics & Insight</h2>
 
@@ -50,5 +39,5 @@ $.get('/api/admin.analytics.trend.php', res => {
 });
 </script>
 
-</body>
-</html>
+</div>
+<?php require_once __DIR__ . '/_footer.php'; ?>
