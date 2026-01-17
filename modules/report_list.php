@@ -33,7 +33,7 @@ $stmt = $db->prepare("
     LEFT JOIN report_categories rc ON rc.report_id = r.id
     LEFT JOIN categories c ON c.id = rc.category_id
     WHERE rp.phone_number = ?
-      AND r.status = 'approved'
+    #  AND r.status = 'approved'
     GROUP BY r.id, r.status, r.created_at
     ORDER BY r.created_at DESC
     LIMIT 50
