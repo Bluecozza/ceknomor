@@ -102,23 +102,41 @@
 <div class="page">
 
   <a href="/" class="backlink">← Kembali ke pencarian</a>
-
-  <h2>Daftar Laporan Nomor</h2>
-
+ 
+  <?php 
+  $nmr = trim($_REQUEST['number'] ?? '');
+  echo "<h2>Daftar Laporan Nomor: ".$nmr."</h2>";
+?>
   <div id="meta"></div>
   <div id="list"></div>
 
 </div>
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<?php
+$api_secret = hash('sha256', date('Y-m-d'));
+?>
 
 <script>
+const API_SECRET = "272018";
+
+function signParams() {
+  const r = Math.floor(Date.now() / 1000).toString();
+  const h = CryptoJS.SHA256(r + API_SECRET).toString();
+  return { r, h };
+}
 const url = new URL(window.location.href);
 const number = url.searchParams.get("number");
-
+const sig = signParams();
 $('#list').html("Memuat data...");
 
-$.get('/api.php', { action:'report.list', number:number }, function(res){
+$.get('/api.php', {
+  action: 'report.list',
+  number: number,
+  r: sig.r,
+  h: sig.h
+}, function(res){
 
   if(res.status !== "ok"){
     $('#list').html("Data tidak ditemukan");

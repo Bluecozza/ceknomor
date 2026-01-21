@@ -53,6 +53,7 @@
 
     </form>
 
+
   </div>
 </div>
 
@@ -61,6 +62,12 @@
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="./assets/app.js"></script>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<?php
+$api_secret = hash('sha256', date('Y-m-d'));
+echo $_SERVER['HTTP_HOST'];
+echo date('Y-m-d');
+echo $api_secret;
+?>
 </body>
 </html>

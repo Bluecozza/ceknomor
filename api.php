@@ -4,8 +4,7 @@ require "./core/db.php";
 require "./core/normalize.php";
 require "./core/response.php";
 require "./core/rate_limit.php";
-
-
+require "./core/api_signature.php";
 $path = $_GET["action"] ?? null;
 
 switch ($path) {
@@ -55,6 +54,7 @@ case "batch_lookup":
     break;
 
   case "report.list":
+	verify_signature();
     require "./modules/report_list.php";
     break;
 

@@ -13,7 +13,6 @@ if (!isset($_FILES['file'])) {
 
 $file = fopen($_FILES['file']['tmp_name'], 'r');
 $header = fgetcsv($file);
-//['title','description','status','created_at','phones','categories']);
 $expected = ['title','description','status','created_at','phones','categories'];
 if ($header !== $expected) {
     json(['status'=>'error','message'=>'invalid_header'],400);

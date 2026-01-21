@@ -10,9 +10,8 @@ header('Content-Disposition: attachment; filename="reports_export.csv"');
 
 $out = fopen('php://output', 'w');
 
-// header         [$title,$desc,$phones,$cats,$status,$created] = $row;
+// header         [$title,$desc,$phones,$cats,$status,$created]
 fputcsv($out, ['title','description','status','created_at','phones','categories']);
-//43,"Ganda Motor","Penipu Jualan Motor",approved,"2026-01-15 09:03:47",6285717640907,penipuan|perdagangan
 
 $stmt = $db->query("
   SELECT
