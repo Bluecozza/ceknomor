@@ -1,197 +1,101 @@
 <?php
 /**
- * core/Response.php
- * ---------------------------------------------------------------
- * Standarisasi response JSON untuk semua endpoint API
- * Format response konsisten untuk semua client (web, mobile, dll)
- * ---------------------------------------------------------------
+ * ./core/Response.php
+ * Standardized JSON API responses
  */
 
 class Response
 {
-    // ── HTTP Status Codes ──────────────────────────────────────
-    const HTTP_OK           = 200;
-    const HTTP_CREATED      = 201;
-    const HTTP_NO_CONTENT   = 204;
-    const HTTP_BAD_REQUEST  = 400;
-    const HTTP_UNAUTHORIZED = 401;
-    const HTTP_FORBIDDEN    = 403;
-    const HTTP_NOT_FOUND    = 404;
-    const HTTP_CONFLICT     = 409;
-    const HTTP_UNPROCESSABLE = 422;
-    const HTTP_RATE_LIMITED = 429;
-    const HTTP_SERVER_ERROR = 500;
+    const HTTP_OK         = 200;
+    const HTTP_CREATED    = 201;
+    const HTTP_NO_CONTENT = 204;
+    const HTTP_BAD_REQ    = 400;
+    const HTTP_UNAUTH     = 401;
+    const HTTP_FORBIDDEN  = 403;
+    const HTTP_NOT_FOUND  = 404;
+    const HTTP_UNPROCESS  = 422;
+    const HTTP_TOO_MANY   = 429;
+    const HTTP_ERROR      = 500;
 
-    // ── Response Builder ───────────────────────────────────────
-
-    /**
-     * Kirim response JSON sukses
-     *
-     * @param mixed  $data    Data payload
-     * @param string $message Pesan sukses
-     * @param int    $code    HTTP status code
-     * @param array  $meta    Metadata tambahan (pagination, dll)
-     */
-    public static function success(
-        $data           = null,
-        string $message = 'Success',
-        int    $code    = self::HTTP_OK,
-        array  $meta    = []
-    ): void {
-        $response = [
-            'success'   => true,
-            'message'   => $message,
-            'data'      => $data,
-            'timestamp' => time(),
-        ];
-
-        if (!empty($meta)) {
-            $response['meta'] = $meta;
-        }
-
-        self::send($response, $code);
+    /** @param mixed $data */
+    public static function success($data = null, string $message = 'Success', int $code = self::HTTP_OK, array $meta = []): void
+    {
+        $body = ['success' => true, 'message' => $message, 'data' => $data, 'timestamp' => time()];
+        if (!empty($meta)) $body['meta'] = $meta;
+        self::send($body, $code);
     }
 
-    /**
-     * Kirim response JSON error
-     *
-     * @param string $message   Pesan error
-     * @param int    $code      HTTP status code
-     * @param array  $errors    Detail error (validasi, dll)
-     * @param string $errorCode Kode error internal
-     */
-    public static function error(
-        string $message   = 'An error occurred',
-        int    $code      = self::HTTP_BAD_REQUEST,
-        array  $errors    = [],
-        string $errorCode = ''
-    ): void {
-        $response = [
-            'success'   => false,
-            'message'   => $message,
-            'timestamp' => time(),
-        ];
-
-        if (!empty($errors)) {
-            $response['errors'] = $errors;
+    public static function error(string $message, int $code = self::HTTP_ERROR, array $errors = [], string $errorCode = ''): void
+    {
+        $body = ['success' => false, 'message' => $message, 'timestamp' => time()];
+        if (!empty($errors))    $body['errors']     = $errors;
+        if (!empty($errorCode)) $body['error_code'] = $errorCode;
+        if (APP_DEBUG) {
+            $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
+            if (!empty($trace[1])) {
+                $body['errors'] = array_merge($errors, [
+                    'file'  => $trace[1]['file'] ?? '',
+                    'line'  => $trace[1]['line'] ?? 0,
+                    'trace' => implode("\n", array_map(function($t, $i) {
+                        return "#{$i} " . ($t['file'] ?? '') . ':' . ($t['line'] ?? '') . ' ' . ($t['function'] ?? '');
+                    }, array_slice($trace, 0, 5), range(0, 4))),
+                ]);
+            }
         }
-
-        if (!empty($errorCode)) {
-            $response['error_code'] = $errorCode;
-        }
-
-        self::send($response, $code);
+        self::send($body, $code);
     }
 
-    /**
-     * Kirim response 404 Not Found
-     */
-    public static function notFound(string $message = 'Resource not found'): void
+    public static function notFound(string $message = 'Tidak ditemukan'): void
     {
         self::error($message, self::HTTP_NOT_FOUND, [], 'NOT_FOUND');
     }
 
-    /**
-     * Kirim response 401 Unauthorized
-     */
-    public static function unauthorized(string $message = 'Unauthorized'): void
+    public static function unauthorized(string $message = 'Autentikasi diperlukan'): void
     {
-        self::error($message, self::HTTP_UNAUTHORIZED, [], 'UNAUTHORIZED');
+        self::error($message, self::HTTP_UNAUTH, [], 'UNAUTHORIZED');
     }
 
-    /**
-     * Kirim response 403 Forbidden
-     */
-    public static function forbidden(string $message = 'Forbidden'): void
+    public static function forbidden(string $message = 'Akses ditolak'): void
     {
         self::error($message, self::HTTP_FORBIDDEN, [], 'FORBIDDEN');
     }
 
-    /**
-     * Kirim response validation error
-     *
-     * @param array $errors Array error validasi ['field' => 'pesan']
-     */
     public static function validationError(array $errors): void
     {
-        self::error('Validation failed', self::HTTP_UNPROCESSABLE, $errors, 'VALIDATION_ERROR');
+        self::error('Validasi gagal', self::HTTP_UNPROCESS, $errors, 'VALIDATION_ERROR');
     }
 
-    /**
-     * Kirim response rate limit exceeded
-     */
     public static function rateLimited(int $retryAfter = 60): void
     {
-        header("Retry-After: {$retryAfter}");
-        self::error('Too many requests. Please slow down.', self::HTTP_RATE_LIMITED, [], 'RATE_LIMITED');
+        header('Retry-After: ' . $retryAfter);
+        self::error('Terlalu banyak request. Coba lagi dalam ' . $retryAfter . ' detik.', self::HTTP_TOO_MANY, [], 'RATE_LIMITED');
     }
 
-    /**
-     * Response dengan pagination metadata
-     *
-     * @param array $data      Data hasil query
-     * @param int   $total     Total semua record
-     * @param int   $page      Halaman saat ini
-     * @param int   $perPage   Jumlah per halaman
-     * @param string $message  Pesan
-     */
-    public static function paginated(
-        array  $data,
-        int    $total,
-        int    $page    = 1,
-        int    $perPage = 20,
-        string $message = 'Success'
-    ): void {
-        $lastPage = (int) ceil($total / $perPage);
-        $meta = [
+    public static function paginated(array $data, int $total, int $page, int $perPage, string $message = 'Success'): void
+    {
+        $last = (int)ceil($total / $perPage) ?: 1;
+        self::success($data, $message, self::HTTP_OK, [
             'pagination' => [
                 'total'        => $total,
                 'per_page'     => $perPage,
                 'current_page' => $page,
-                'last_page'    => $lastPage,
-                'has_more'     => $page < $lastPage,
-                'from'         => ($page - 1) * $perPage + 1,
+                'last_page'    => $last,
+                'from'         => $total > 0 ? ($page - 1) * $perPage + 1 : 0,
                 'to'           => min($page * $perPage, $total),
-            ]
-        ];
-
-        self::success($data, $message, self::HTTP_OK, $meta);
+            ],
+        ]);
     }
 
-    // ── Internal ───────────────────────────────────────────────
-
-    /**
-     * Set header dan encode JSON lalu output
-     */
-    private static function send(array $payload, int $statusCode): void
+    private static function send(array $body, int $code): void
     {
-        // Pastikan tidak ada output sebelumnya
-        if (ob_get_length()) {
-            ob_clean();
+        if (!headers_sent()) {
+            http_response_code($code);
+            header('Content-Type: application/json; charset=utf-8');
+            header('Access-Control-Allow-Origin: *');
+            header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+            header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key, X-Requested-With');
         }
-
-        http_response_code($statusCode);
-
-        // CORS headers – sesuaikan di production
-        header('Content-Type: application/json; charset=utf-8');
-        header('X-Content-Type-Options: nosniff');
-        header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key, X-Requested-With');
-
-        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-        if ($json === false) {
-            // Fallback jika encoding gagal
-            echo json_encode([
-                'success'   => false,
-                'message'   => 'JSON encoding error',
-                'timestamp' => time()
-            ]);
-        } else {
-            echo $json;
-        }
-
+        echo json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
 }

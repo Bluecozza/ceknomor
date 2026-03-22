@@ -1,229 +1,111 @@
 <?php
 /**
- * core/Database.php
- * ---------------------------------------------------------------
- * Singleton PDO Database wrapper
- * Menyediakan query builder sederhana dan prepared statements
- * ---------------------------------------------------------------
+ * ./core/Database.php
+ * PDO database wrapper — singleton pattern
  */
 
 class Database
 {
-    /** @var Database|null Instance singleton */
-    private static ?Database $instance = null;
+    /** @var Database|null */
+    private static $instance = null;
 
-    /** @var PDO Koneksi PDO aktif */
-    private PDO $pdo;
+    /** @var PDO */
+    private $pdo;
 
-    /** @var int Jumlah query yang dieksekusi (untuk debugging) */
-    private int $queryCount = 0;
-
-    // ── Constructor ────────────────────────────────────────────
-
-    /**
-     * Private constructor – gunakan getInstance()
-     */
     private function __construct()
     {
-        $dsn = sprintf(
-            'mysql:host=%s;port=%d;dbname=%s;charset=%s',
-            DB_HOST, DB_PORT, DB_NAME, DB_CHARSET
-        );
+        $dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=%s',
+            DB_HOST, DB_PORT, DB_NAME, DB_CHARSET);
 
-        $options = [
+        $this->pdo = new PDO($dsn, DB_USER, DB_PASS, [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES   => false,
-            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
-        ];
-
-        try {
-            $this->pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-        } catch (PDOException $e) {
-            // Jangan expose detail koneksi ke user
-            $msg = APP_DEBUG ? $e->getMessage() : 'Database connection failed';
-            throw new RuntimeException($msg);
-        }
+        ]);
     }
 
-    // ── Singleton ──────────────────────────────────────────────
-
-    /**
-     * Dapatkan instance Database (Singleton)
-     */
     public static function getInstance(): self
     {
-        if (self::$instance === null) {
-            self::$instance = new self();
-        }
+        if (self::$instance === null) self::$instance = new self();
         return self::$instance;
     }
 
-    // ── Core Query Methods ─────────────────────────────────────
+    private function __clone() {}
 
-    /**
-     * Eksekusi query dengan parameter binding
-     *
-     * @param string $sql    Query SQL
-     * @param array  $params Parameter binding
-     * @return PDOStatement
-     */
+    // ── Query ─────────────────────────────────────────────────
     public function query(string $sql, array $params = []): PDOStatement
     {
-        $this->queryCount++;
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         return $stmt;
     }
 
-    /**
-     * Ambil satu baris hasil query
-     */
     public function fetchOne(string $sql, array $params = []): ?array
     {
-        $result = $this->query($sql, $params)->fetch();
-        return $result ?: null;
+        $row = $this->query($sql, $params)->fetch();
+        return $row ?: null;
     }
 
-    /**
-     * Ambil semua baris hasil query
-     */
     public function fetchAll(string $sql, array $params = []): array
     {
         return $this->query($sql, $params)->fetchAll();
     }
 
-    /**
-     * Ambil nilai satu kolom dari satu baris
-     * @return mixed
-     */
+    /** @return mixed */
     public function fetchColumn(string $sql, array $params = [])
     {
         return $this->query($sql, $params)->fetchColumn();
     }
 
-    // ── CRUD Helpers ───────────────────────────────────────────
-
-    /**
-     * Insert data ke tabel
-     *
-     * @param string $table  Nama tabel
-     * @param array  $data   Data ['kolom' => 'nilai']
-     * @return int Last insert ID
-     */
+    // ── CRUD ──────────────────────────────────────────────────
     public function insert(string $table, array $data): int
     {
-        $cols        = implode(', ', array_keys($data));
-        $placeholders = implode(', ', array_fill(0, count($data), '?'));
-        $sql = "INSERT INTO `{$table}` ({$cols}) VALUES ({$placeholders})";
+        $cols  = array_map(function($k) { return "`{$k}`"; }, array_keys($data));
+        $ph    = array_fill(0, count($data), '?');
+        $sql   = "INSERT INTO `{$table}` (" . implode(',', $cols) . ") VALUES (" . implode(',', $ph) . ")";
         $this->query($sql, array_values($data));
-        return (int) $this->pdo->lastInsertId();
+        return (int)$this->pdo->lastInsertId();
     }
 
-    /**
-     * Update data di tabel
-     *
-     * @param string $table  Nama tabel
-     * @param array  $data   Data yang diupdate
-     * @param string $where  Kondisi WHERE (e.g., "id = ?")
-     * @param array  $whereParams Parameter untuk WHERE
-     * @return int Jumlah baris yang terpengaruh
-     */
     public function update(string $table, array $data, string $where, array $whereParams = []): int
     {
-        $setParts = array_map(function($k) { return "`{$k}` = ?"; }, array_keys($data));
-        $set      = implode(', ', $setParts);
-        $sql      = "UPDATE `{$table}` SET {$set} WHERE {$where}";
-        $params   = array_merge(array_values($data), $whereParams);
-        return $this->query($sql, $params)->rowCount();
+        $set  = array_map(function($k) { return "`{$k}` = ?"; }, array_keys($data));
+        $sql  = "UPDATE `{$table}` SET " . implode(', ', $set) . " WHERE {$where}";
+        $stmt = $this->query($sql, array_merge(array_values($data), $whereParams));
+        return $stmt->rowCount();
     }
 
-    /**
-     * Delete data dari tabel
-     */
     public function delete(string $table, string $where, array $params = []): int
     {
-        $sql = "DELETE FROM `{$table}` WHERE {$where}";
-        return $this->query($sql, $params)->rowCount();
+        return $this->query("DELETE FROM `{$table}` WHERE {$where}", $params)->rowCount();
     }
 
-    // ── Transaction ────────────────────────────────────────────
-
-    public function beginTransaction(): bool
+    /** @return mixed */
+    public function transaction(callable $cb)
     {
-        return $this->pdo->beginTransaction();
-    }
-
-    public function commit(): bool
-    {
-        return $this->pdo->commit();
-    }
-
-    public function rollback(): bool
-    {
-        return $this->pdo->rollBack();
-    }
-
-    /**
-     * Jalankan callback dalam transaksi
-     *
-     * @param callable $callback
-     * @return mixed Nilai return dari callback
-     * @throws Throwable
-     */
-    public function transaction(callable $callback)
-    {
-        $this->beginTransaction();
+        $this->pdo->beginTransaction();
         try {
-            $result = $callback($this);
-            $this->commit();
+            $result = $cb($this);
+            $this->pdo->commit();
             return $result;
         } catch (Throwable $e) {
-            $this->rollback();
+            $this->pdo->rollBack();
             throw $e;
         }
     }
 
-    // ── Utility ────────────────────────────────────────────────
-
-    /**
-     * Cek apakah tabel ada
-     */
     public function tableExists(string $table): bool
     {
-        $result = $this->fetchColumn(
-            "SELECT COUNT(*) FROM information_schema.tables 
-             WHERE table_schema = ? AND table_name = ?",
-            [DB_NAME, $table]
-        );
-        return (int) $result > 0;
+        try {
+            $this->query("SELECT 1 FROM `{$table}` LIMIT 1");
+            return true;
+        } catch (PDOException $e) {
+            return false;
+        }
     }
 
-    /**
-     * Dapatkan last insert ID
-     */
-    public function lastInsertId(): int
+    public function escapeLike(string $v): string
     {
-        return (int) $this->pdo->lastInsertId();
+        return str_replace(['\\','%','_'], ['\\\\','\\%','\\_'], $v);
     }
-
-    /**
-     * Escape untuk LIKE query
-     */
-    public function escapeLike(string $value): string
-    {
-        return str_replace(['%', '_'], ['\\%', '\\_'], $value);
-    }
-
-    /**
-     * Dapatkan jumlah query yang dieksekusi
-     */
-    public function getQueryCount(): int
-    {
-        return $this->queryCount;
-    }
-
-    // ── Prevent cloning ────────────────────────────────────────
-    private function __clone() {}
-    public function __wakeup() { throw new RuntimeException("Cannot unserialize singleton"); }
 }

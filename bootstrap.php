@@ -1,63 +1,52 @@
 <?php
 /**
- * bootstrap.php
- * ---------------------------------------------------------------
- * File bootstrap utama - dimuat di setiap entry point
- * Urutan loading sangat penting!
- * ---------------------------------------------------------------
+ * ./bootstrap.php
+ * Application bootstrap — load config, core classes, boot modules
  */
 
-// Cegah akses langsung ke file bootstrap
 defined('ROOT_PATH') || define('ROOT_PATH', __DIR__);
 
-// 1. Load konfigurasi
+// 1. Config
 require_once ROOT_PATH . '/config/config.php';
 
-// 2. Load core classes & helpers
-// helpers.php HARUS dimuat pertama karena berisi polyfill PHP 7.4
+// 2. Core (helpers first — contains polyfills)
 require_once CORE_PATH . '/helpers.php';
 require_once CORE_PATH . '/Database.php';
 require_once CORE_PATH . '/Response.php';
-require_once CORE_PATH . '/Router.php';
 require_once CORE_PATH . '/ModuleManager.php';
 require_once CORE_PATH . '/ReportService.php';
 
-// 3. Boot module manager (load modul yang aktif)
-try {
-    $moduleManager = ModuleManager::getInstance();
-    $moduleManager->bootModules();
-} catch (Exception $e) {
-    // Jangan crash jika modul gagal load
-    error_log("Module boot error: " . $e->getMessage());
+// 3. Ensure directories exist
+foreach ([LOG_PATH, STORAGE_PATH . '/cache', STORAGE_PATH . '/sessions'] as $dir) {
+    if (!is_dir($dir)) @mkdir($dir, 0755, true);
 }
 
-// 4. Set global exception handler
-set_exception_handler(function (Throwable $e) {
-    error_log("Uncaught exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
+// 4. Boot modules — completely silent on failure
+// Module errors MUST NOT crash the application
+try {
+    ModuleManager::getInstance()->bootModules();
+} catch (Throwable $e) {
+    error_log('Module boot error: ' . $e->getMessage());
+    // Continue — modules are optional
+}
 
-    if (headers_sent()) {
+// 5. Global exception handler — last resort
+set_exception_handler(function(Throwable $e) {
+    error_log('Uncaught: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    if (headers_sent()) { exit; }
+    if (class_exists('Response')) {
+        if (defined('APP_DEBUG') && APP_DEBUG) {
+            Response::error($e->getMessage(), 500, [
+                'file'  => $e->getFile(),
+                'line'  => $e->getLine(),
+            ], 'INTERNAL_ERROR');
+        } else {
+            Response::error('Terjadi kesalahan internal.', 500, [], 'INTERNAL_ERROR');
+        }
+    } else {
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         exit;
     }
-
-    if (APP_DEBUG) {
-        Response::error(
-            $e->getMessage(),
-            500,
-            ['file' => $e->getFile(), 'line' => $e->getLine(), 'trace' => $e->getTraceAsString()],
-            'INTERNAL_ERROR'
-        );
-    } else {
-        Response::error('Terjadi kesalahan internal. Silakan coba lagi.', 500, [], 'INTERNAL_ERROR');
-    }
 });
-
-// 5. Ensure log directory exists
-if (!is_dir(LOG_PATH)) {
-    mkdir(LOG_PATH, 0755, true);
-}
-
-// Pastikan direktori storage ada
-$storageCacheDir = ROOT_PATH . '/storage/cache';
-if (!is_dir($storageCacheDir)) {
-    mkdir($storageCacheDir, 0755, true);
-}
