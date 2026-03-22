@@ -230,17 +230,20 @@ INSERT INTO `settings` (`key`, `value`, `type`, `group`, `label`) VALUES
 -- ------------------------------------------------------------
 CREATE TABLE `api_keys` (
   `id`           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `name`         VARCHAR(150) NOT NULL COMMENT 'Nama aplikasi',
-  `api_key`      VARCHAR(64)  NOT NULL UNIQUE,
-  `api_secret`   VARCHAR(128) NOT NULL,
-  `permissions`  JSON COMMENT '["read","write","admin"]',
-  `is_active`    TINYINT(1) DEFAULT 1,
-  `rate_limit`   INT DEFAULT 60 COMMENT 'Request per menit',
-  `last_used_at` TIMESTAMP NULL,
+  `name`         VARCHAR(150) NOT NULL COMMENT 'Nama aplikasi/klien',
+  `key_hash`     VARCHAR(64)  NOT NULL UNIQUE COMMENT 'SHA256 hash dari API key',
+  `key_prefix`   VARCHAR(20)  NOT NULL COMMENT 'Prefix untuk identifikasi (ck_live_xxxx...)',
+  `permissions`  JSON         COMMENT '["search","read","write"]',
+  `is_active`    TINYINT(1)   DEFAULT 1,
+  `rate_limit`   INT          DEFAULT 60 COMMENT 'Request per menit',
+  `usage_count`  INT UNSIGNED DEFAULT 0,
+  `last_used_at` TIMESTAMP    NULL,
+  `expires_at`   TIMESTAMP    NULL,
   `created_by`   INT UNSIGNED,
-  `created_at`   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  FOREIGN KEY (`created_by`) REFERENCES `admins`(`id`)
+  `created_at`   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (`created_by`) REFERENCES `admins`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- ------------------------------------------------------------

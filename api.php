@@ -275,10 +275,43 @@ elseif ($method === 'POST' && preg_match('#^/auth/logout$#', $path)) {
 
 // ── /modules ──────────────────────────────────────────────────
 elseif ($method === 'GET' && preg_match('#^/modules$#', $path)) {
-    $admin   = requireAdmin();
+    requireAdmin();
     $manager = ModuleManager::getInstance();
-    $manager->discoverModules();
-    $modules = $manager->getAllModules();
+
+    // Coba discover modul baru, abaikan error
+    try {
+        $manager->discoverModules();
+    } catch (Exception $e) {
+        error_log('discoverModules error: ' . $e->getMessage());
+    }
+
+    // Ambil daftar modul dari DB
+    try {
+        $modules = $manager->getAllModules();
+    } catch (Exception $e) {
+        $modules = [];
+    }
+
+    // Jika DB kosong, tampilkan modul dari folder langsung
+    if (empty($modules) && is_dir(MODULE_PATH)) {
+        $modules = [];
+        $dirs = glob(MODULE_PATH . '/*/module.json') ?: [];
+        foreach ($dirs as $mf) {
+            $m = json_decode(file_get_contents($mf), true);
+            if ($m) {
+                $modules[] = [
+                    'id'          => 0,
+                    'slug'        => $m['slug']        ?? basename(dirname($mf)),
+                    'name'        => $m['name']        ?? basename(dirname($mf)),
+                    'description' => $m['description'] ?? '',
+                    'version'     => $m['version']     ?? '1.0.0',
+                    'is_enabled'  => 0,
+                    'is_core'     => $m['is_core']     ?? 0,
+                ];
+            }
+        }
+    }
+
     Response::success(['modules' => $modules]);
 }
 
@@ -459,14 +492,20 @@ elseif (preg_match('#^/admin#', $path)) {
     // --- Settings ---
     elseif ($method === 'GET' && $path === '/admin/settings') {
         requireAdmin(['superadmin','admin']);
-        $rows     = $db->fetchAll("SELECT `key`, value, type, description FROM settings ORDER BY `key`");
+        $rows     = $db->fetchAll("SELECT `key`, value, type, `group`, label, description FROM settings ORDER BY `key`");
         $settings = [];
         foreach ($rows as $r) {
             $v = $r['value'];
             if ($r['type'] === 'boolean') $v = (bool)$v;
             elseif ($r['type'] === 'integer') $v = (int)$v;
             elseif ($r['type'] === 'json') $v = json_decode($v, true);
-            $settings[$r['key']] = ['value'=>$v,'type'=>$r['type'],'description'=>$r['description']];
+            $settings[$r['key']] = [
+                'value'       => $v,
+                'type'        => $r['type'],
+                'group'       => $r['group'] ?? 'general',
+                'label'       => $r['label'] ?? $r['key'],
+                'description' => $r['description'] ?? '',
+            ];
         }
         Response::success(['settings' => $settings]);
     }

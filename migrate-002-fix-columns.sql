@@ -62,3 +62,26 @@ UNION ALL
 SELECT 'activity_logs', COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'activity_logs';
 
 SELECT 'Migration selesai!' AS status;
+
+-- ── Tabel api_keys (rebuild dengan schema baru) ───────────────
+-- Hapus tabel lama dan buat ulang dengan kolom yang benar
+-- PERINGATAN: Data API key lama akan hilang!
+DROP TABLE IF EXISTS `api_keys`;
+CREATE TABLE `api_keys` (
+  `id`           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `name`         VARCHAR(150) NOT NULL,
+  `key_hash`     VARCHAR(64)  NOT NULL UNIQUE,
+  `key_prefix`   VARCHAR(20)  NOT NULL,
+  `permissions`  JSON,
+  `is_active`    TINYINT(1)   DEFAULT 1,
+  `rate_limit`   INT          DEFAULT 60,
+  `usage_count`  INT UNSIGNED DEFAULT 0,
+  `last_used_at` TIMESTAMP    NULL,
+  `expires_at`   TIMESTAMP    NULL,
+  `created_by`   INT UNSIGNED,
+  `created_at`   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (`created_by`) REFERENCES `admins`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+SELECT 'api_keys table recreated' AS status;

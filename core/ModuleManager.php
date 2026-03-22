@@ -49,7 +49,9 @@ class ModuleManager
 
         if (!is_dir(MODULE_PATH)) return $discovered;
 
-        $dirs = array_filter(glob(MODULE_PATH . '/*'), 'is_dir');
+        $allDirs = glob(MODULE_PATH . '/*');
+        if (!$allDirs) return $discovered;
+        $dirs = array_filter($allDirs, 'is_dir');
 
         foreach ($dirs as $dir) {
             $slug         = basename($dir);
@@ -57,27 +59,32 @@ class ModuleManager
 
             if (!file_exists($manifestFile)) continue;
 
-            $manifest = json_decode(file_get_contents($manifestFile), true);
-            if (!$manifest) continue;
+            $raw      = file_get_contents($manifestFile);
+            $manifest = $raw ? json_decode($raw, true) : null;
+            if (!$manifest || !is_array($manifest)) continue;
 
             $discovered[$slug] = $manifest;
 
-            $existing = $this->db->fetchOne(
-                "SELECT id FROM modules WHERE slug = ?", [$slug]
-            );
+            try {
+                $existing = $this->db->fetchOne(
+                    "SELECT id FROM modules WHERE slug = ?", [$slug]
+                );
 
-            if (!$existing) {
-                $this->db->insert('modules', [
-                    'name'        => $manifest['name']        ?? $slug,
-                    'slug'        => $slug,
-                    'description' => $manifest['description'] ?? '',
-                    'version'     => $manifest['version']     ?? '1.0.0',
-                    'author'      => $manifest['author']      ?? '',
-                    'is_enabled'  => $manifest['auto_enable'] ?? 0,
-                    'is_core'     => $manifest['is_core']     ?? 0,
-                    'config'      => json_encode($manifest['config'] ?? []),
-                ]);
-                $this->log("Registered: {$slug}");
+                if (!$existing) {
+                    $this->db->insert('modules', [
+                        'name'        => $manifest['name']        ?? $slug,
+                        'slug'        => $slug,
+                        'description' => $manifest['description'] ?? '',
+                        'version'     => $manifest['version']     ?? '1.0.0',
+                        'author'      => $manifest['author']      ?? '',
+                        'is_enabled'  => $manifest['auto_enable'] ?? 0,
+                        'is_core'     => $manifest['is_core']     ?? 0,
+                        'config'      => json_encode($manifest['config'] ?? []),
+                    ]);
+                    $this->log("Registered: {$slug}");
+                }
+            } catch (Exception $e) {
+                $this->log("Error registering {$slug}: " . $e->getMessage());
             }
         }
 

@@ -500,7 +500,10 @@
         </a>
         <div class="footer-links">
             <a href="/report"><i class="bi bi-plus-circle"></i> Buat Laporan</a>
-
+            <a href="/docs"><i class="bi bi-book"></i> Dokumentasi</a>
+            <a href="/admin"><i class="bi bi-person-lock"></i> Admin</a>
+            <a href="/api/v1/search?q=test" target="_blank"><i class="bi bi-code-slash"></i> API</a>
+            <a href="mailto:info@cek.resource.my.id"><i class="bi bi-envelope"></i> Kontak</a>
         </div>
     </div>
 </footer>

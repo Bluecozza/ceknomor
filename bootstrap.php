@@ -55,3 +55,9 @@ set_exception_handler(function (Throwable $e) {
 if (!is_dir(LOG_PATH)) {
     mkdir(LOG_PATH, 0755, true);
 }
+
+// Pastikan direktori storage ada
+$storageCacheDir = ROOT_PATH . '/storage/cache';
+if (!is_dir($storageCacheDir)) {
+    mkdir($storageCacheDir, 0755, true);
+}
