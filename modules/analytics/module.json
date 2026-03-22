@@ -1,0 +1,50 @@
+{
+    "slug": "analytics",
+    "name": "Analytics",
+    "description": "Modul analitik untuk melacak page views, pencarian populer, dan trend laporan. Menyediakan dashboard statistik yang lengkap.",
+    "version": "1.0.0",
+    "author": "cek.resource.my.id",
+    "is_core": false,
+    "dependencies": [],
+    "hooks": [
+        "page.view",
+        "search.performed",
+        "report.created",
+        "report.viewed"
+    ],
+    "permissions": ["admin", "superadmin"],
+    "config": {
+        "retention_days": 90,
+        "track_ip": true,
+        "track_user_agent": false,
+        "enable_realtime": false
+    },
+    "config_schema": {
+        "retention_days": {
+            "type": "integer",
+            "label": "Retensi Data (hari)",
+            "description": "Berapa hari data analitik disimpan",
+            "default": 90,
+            "min": 7,
+            "max": 365
+        },
+        "track_ip": {
+            "type": "boolean",
+            "label": "Lacak IP Address",
+            "description": "Apakah IP pengunjung dicatat",
+            "default": true
+        },
+        "track_user_agent": {
+            "type": "boolean",
+            "label": "Lacak User Agent",
+            "description": "Apakah browser/device pengunjung dicatat",
+            "default": false
+        },
+        "enable_realtime": {
+            "type": "boolean",
+            "label": "Realtime Dashboard",
+            "description": "Aktifkan polling data realtime di admin panel",
+            "default": false
+        }
+    }
+}

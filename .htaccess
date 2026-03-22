@@ -1,0 +1,107 @@
+## ============================================================
+## .htaccess - cek.resource.my.id
+## Routing utama untuk Apache/Laragon
+## ============================================================
+
+Options -Indexes
+Options -MultiViews
+
+# Aktifkan mod_rewrite
+RewriteEngine On
+
+# Jika berjalan di subdirektori (e.g., /cek-resource), uncomment dan sesuaikan:
+# RewriteBase /cek-resource
+
+## ── Security Headers ──────────────────────────────────────────
+<IfModule mod_headers.c>
+    # Cegah clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+    # Cegah MIME type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    # XSS Protection
+    Header always set X-XSS-Protection "1; mode=block"
+    # Referrer Policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    # HSTS (aktifkan jika sudah HTTPS)
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    
+    # Remove server signature
+    Header unset X-Powered-By
+    Header always unset X-Powered-By
+</IfModule>
+
+## ── Block sensitive files ─────────────────────────────────────
+<FilesMatch "\.(sql|env|log|sh|bak|git)$">
+    Require all denied
+</FilesMatch>
+
+# Block akses ke folder config dan core dari web
+RewriteRule ^(config|core|logs)(/.*)?$ - [F,L]
+
+## ── CORS untuk API ────────────────────────────────────────────
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-API-Key, X-Requested-With"
+</IfModule>
+
+# Handle OPTIONS preflight langsung
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ - [R=204,L]
+
+## ── Static Assets (tidak perlu routing) ──────────────────────
+RewriteCond %{REQUEST_URI} ^/public/
+RewriteRule ^ - [L]
+
+## ── API Routing ───────────────────────────────────────────────
+# Arahkan semua request API ke file yang sesuai
+
+# GET/POST /api/v1/search
+RewriteRule ^api/v1/search/?$ api/v1/search/index.php [QSA,L]
+
+# /api/v1/reports/{ulid}
+RewriteRule ^api/v1/reports/([0-9A-Z]{26})/?$ api/v1/reports/index.php [QSA,L]
+
+# /api/v1/reports
+RewriteRule ^api/v1/reports/?$ api/v1/reports/index.php [QSA,L]
+
+# /api/v1/auth/{action}
+RewriteRule ^api/v1/auth/(.+)/?$ api/v1/auth/index.php [QSA,L]
+
+# /api/v1/modules/{slug}/{action}
+RewriteRule ^api/v1/modules/([a-z0-9_]+)/([a-z]+)/?$ api/v1/modules/index.php [QSA,L]
+RewriteRule ^api/v1/modules/?$ api/v1/modules/index.php [QSA,L]
+
+# /api/v1/admin/*
+RewriteRule ^api/v1/admin/(.+)/?$ api/v1/admin/index.php [QSA,L]
+
+# /api/v1/categories + sub-routes
+RewriteRule ^api/v1/categories/report-types/?$     api/v1/categories/index.php [QSA,L]
+RewriteRule ^api/v1/categories/([a-z0-9_-]+)/?$   api/v1/categories/index.php [QSA,L]
+RewriteRule ^api/v1/categories/?$                  api/v1/categories/index.php [QSA,L]
+
+## ── Admin Panel ───────────────────────────────────────────────
+RewriteRule ^admin/?$ admin/index.php [QSA,L]
+RewriteRule ^admin/(.+)$ admin/index.php [QSA,L]
+
+## ── Frontend SPA-like Routing ─────────────────────────────────
+# Semua request yang tidak cocok dengan file/folder diarahkan ke index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+## ── Compression ───────────────────────────────────────────────
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+    AddOutputFilterByType DEFLATE application/javascript application/json
+</IfModule>
+
+## ── Browser Caching ───────────────────────────────────────────
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg  "access plus 1 month"
+    ExpiresByType image/png   "access plus 1 month"
+    ExpiresByType image/webp  "access plus 1 month"
+    ExpiresByType text/css    "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+</IfModule>

@@ -1,0 +1,56 @@
+{
+    "slug": "sharing",
+    "name": "Sharing & OG Tags",
+    "description": "Modul untuk menghasilkan Open Graph tags dan link preview saat laporan dibagikan ke media sosial (WhatsApp, Telegram, Twitter, Facebook).",
+    "version": "1.0.0",
+    "author": "cek.resource.my.id",
+    "is_core": false,
+    "dependencies": [],
+    "hooks": [
+        "page.render",
+        "report.viewed"
+    ],
+    "permissions": ["admin", "superadmin"],
+    "config": {
+        "enable_whatsapp": true,
+        "enable_telegram": true,
+        "enable_twitter": true,
+        "enable_facebook": true,
+        "og_image_url": "",
+        "share_message_template": "Cek data ini di cek.resource.my.id: {url}"
+    },
+    "config_schema": {
+        "enable_whatsapp": {
+            "type": "boolean",
+            "label": "Tombol Share WhatsApp",
+            "default": true
+        },
+        "enable_telegram": {
+            "type": "boolean",
+            "label": "Tombol Share Telegram",
+            "default": true
+        },
+        "enable_twitter": {
+            "type": "boolean",
+            "label": "Tombol Share Twitter/X",
+            "default": true
+        },
+        "enable_facebook": {
+            "type": "boolean",
+            "label": "Tombol Share Facebook",
+            "default": true
+        },
+        "og_image_url": {
+            "type": "string",
+            "label": "URL Gambar OG Default",
+            "description": "Gambar default untuk preview link sosial media",
+            "default": ""
+        },
+        "share_message_template": {
+            "type": "string",
+            "label": "Template Pesan Share",
+            "description": "Gunakan {url} untuk URL laporan, {value} untuk nilai data",
+            "default": "Cek data ini di cek.resource.my.id: {url}"
+        }
+    }
+}

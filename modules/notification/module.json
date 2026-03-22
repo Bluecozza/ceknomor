@@ -1,0 +1,77 @@
+{
+    "slug": "notification",
+    "name": "Notifikasi Email",
+    "description": "Kirim email notifikasi ke admin saat ada laporan baru masuk, dan konfirmasi ke pelapor saat laporan disetujui.",
+    "version": "1.0.0",
+    "author": "cek.resource.my.id",
+    "is_core": false,
+    "dependencies": [],
+    "hooks": [
+        "report.created",
+        "report.approved",
+        "report.rejected"
+    ],
+    "permissions": ["admin", "superadmin"],
+    "config": {
+        "notify_admin_on_new": true,
+        "notify_reporter_on_approved": false,
+        "admin_email": "",
+        "from_email": "noreply@cek.resource.my.id",
+        "from_name": "cek.resource.my.id",
+        "smtp_host": "",
+        "smtp_port": 587,
+        "smtp_user": "",
+        "smtp_pass": "",
+        "smtp_encryption": "tls"
+    },
+    "config_schema": {
+        "notify_admin_on_new": {
+            "type": "boolean",
+            "label": "Notifikasi laporan baru ke admin",
+            "default": true
+        },
+        "notify_reporter_on_approved": {
+            "type": "boolean",
+            "label": "Notifikasi pelapor saat laporan disetujui",
+            "default": false
+        },
+        "admin_email": {
+            "type": "string",
+            "label": "Email tujuan notifikasi admin",
+            "description": "Kosongkan untuk menggunakan site_email dari pengaturan"
+        },
+        "from_email": {
+            "type": "string",
+            "label": "Email pengirim",
+            "default": "noreply@cek.resource.my.id"
+        },
+        "from_name": {
+            "type": "string",
+            "label": "Nama pengirim",
+            "default": "cek.resource.my.id"
+        },
+        "smtp_host": {
+            "type": "string",
+            "label": "SMTP Host",
+            "description": "Kosongkan untuk menggunakan PHP mail() bawaan"
+        },
+        "smtp_port": {
+            "type": "integer",
+            "label": "SMTP Port",
+            "default": 587
+        },
+        "smtp_user": {
+            "type": "string",
+            "label": "SMTP Username"
+        },
+        "smtp_pass": {
+            "type": "string",
+            "label": "SMTP Password"
+        },
+        "smtp_encryption": {
+            "type": "string",
+            "label": "Enkripsi SMTP",
+            "description": "tls atau ssl"
+        }
+    }
+}
