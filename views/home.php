@@ -500,10 +500,10 @@
         </a>
         <div class="footer-links">
             <a href="/report"><i class="bi bi-plus-circle"></i> Buat Laporan</a>
-            <a href="/docs"><i class="bi bi-book"></i> Dokumentasi</a>
-            <a href="/admin"><i class="bi bi-person-lock"></i> Admin</a>
+ <!--           <a href="/docs"><i class="bi bi-book"></i> Dokumentasi</a>
             <a href="/api/v1/search?q=test" target="_blank"><i class="bi bi-code-slash"></i> API</a>
             <a href="mailto:info@cek.resource.my.id"><i class="bi bi-envelope"></i> Kontak</a>
+			-->
         </div>
     </div>
 </footer>
@@ -620,6 +620,26 @@ function doSearch() {
         },
 
         error: function(xhr) {
+            // Jika 301 redirect (Apache trailing slash issue), fallback ke GET
+            if (xhr.status === 301 || xhr.status === 0) {
+                $.ajax({
+                    url:      `${API_BASE}/search`,
+                    method:   'GET',
+                    data:     { q: query, category: activeCategory },
+                    dataType: 'json',
+                    timeout:  10000,
+                    success: function(res) {
+                        setSearchLoading(false);
+                        if (res.success) handleSearchResult(res.data, query);
+                        else showToast(res.message || 'Terjadi kesalahan', 'danger');
+                    },
+                    error: function(xhr2) {
+                        setSearchLoading(false);
+                        showToast('Gagal terhubung ke server. Coba lagi.', 'danger');
+                    }
+                });
+                return;
+            }
             setSearchLoading(false);
             const msg = xhr.responseJSON?.message || 'Gagal terhubung ke server';
             showToast(msg, 'danger');

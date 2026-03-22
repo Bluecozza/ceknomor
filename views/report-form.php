@@ -321,20 +321,32 @@ $('#categoryId').on('change', function() {
 
 // Load categories & report types
 $(document).ready(function() {
-    $.get(`${API_BASE}/categories`).done(res => {
-        if (res.success) {
-            res.data.forEach(c => {
-                $('#categoryId').append(`<option value="${c.id}" data-slug="${c.slug}">${c.name}</option>`);
+    $.get(`${API_BASE}/categories`).done(function(res) {
+        if (res.success && res.data) {
+            // API returns { data: { categories: [...] } }
+            var cats = res.data.categories || res.data || [];
+            cats.forEach(function(c) {
+                $('#categoryId').append(
+                    $('<option>').val(c.id).text(c.name).attr('data-slug', c.slug)
+                );
             });
         }
+    }).fail(function() {
+        $('#categoryId').append('<option disabled>Gagal memuat kategori</option>');
     });
 
-    $.get(`${API_BASE}/categories/report-types`).done(res => {
-        if (res.success) {
-            res.data.forEach(t => {
-                $('#reportTypeId').append(`<option value="${t.id}">${t.name}</option>`);
+    $.get(`${API_BASE}/categories/report-types`).done(function(res) {
+        if (res.success && res.data) {
+            // API returns { data: { report_types: [...] } }
+            var types = res.data.report_types || res.data || [];
+            types.forEach(function(t) {
+                $('#reportTypeId').append(
+                    $('<option>').val(t.id).text(t.name + ' (Sev.' + t.severity + ')')
+                );
             });
         }
+    }).fail(function() {
+        $('#reportTypeId').append('<option disabled>Gagal memuat jenis laporan</option>');
     });
 
     // Pre-fill dari URL

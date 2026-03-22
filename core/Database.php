@@ -131,7 +131,7 @@ class Database
      */
     public function update(string $table, array $data, string $where, array $whereParams = []): int
     {
-        $setParts = array_map(fn($k) => "`{$k}` = ?", array_keys($data));
+        $setParts = array_map(function($k) { return "`{$k}` = ?"; }, array_keys($data));
         $set      = implode(', ', $setParts);
         $sql      = "UPDATE `{$table}` SET {$set} WHERE {$where}";
         $params   = array_merge(array_values($data), $whereParams);

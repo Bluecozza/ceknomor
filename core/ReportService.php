@@ -294,10 +294,23 @@ class ReportService
             $conditions[] = "r.status = ?";
             $params[]     = $filters['status'];
         }
-        if (!empty($filters['category_id'])) {
+
+        // Support 'category' (slug) atau 'category_id'
+        if (!empty($filters['category'])) {
+            $conditions[] = "c.slug = ?";
+            $params[]     = $filters['category'];
+        } elseif (!empty($filters['category_id'])) {
             $conditions[] = "r.category_id = ?";
             $params[]     = (int)$filters['category_id'];
         }
+
+        // Filter jenis laporan
+        if (!empty($filters['report_type'])) {
+            $conditions[] = "rt.slug = ?";
+            $params[]     = $filters['report_type'];
+        }
+
+        // Filter pencarian teks
         if (!empty($filters['search'])) {
             $conditions[] = "(r.reported_value LIKE ? OR r.title LIKE ?)";
             $like         = '%' . $this->db->escapeLike($filters['search']) . '%';
@@ -305,22 +318,38 @@ class ReportService
             $params[]     = $like;
         }
 
+        // Filter tanggal
+        if (!empty($filters['date_from'])) {
+            $conditions[] = "DATE(r.created_at) >= ?";
+            $params[]     = $filters['date_from'];
+        }
+        if (!empty($filters['date_to'])) {
+            $conditions[] = "DATE(r.created_at) <= ?";
+            $params[]     = $filters['date_to'];
+        }
+
         $where  = implode(' AND ', $conditions);
         $offset = ($page - 1) * $perPage;
 
         $total = (int)$this->db->fetchColumn(
-            "SELECT COUNT(*) FROM reports r WHERE {$where}", $params
+            "SELECT COUNT(*)
+             FROM reports r
+             JOIN categories   c  ON r.category_id    = c.id
+             JOIN report_types rt ON r.report_type_id = rt.id
+             WHERE {$where}",
+            $params
         );
 
         $reports = $this->db->fetchAll(
             "SELECT r.id, r.ulid, r.title, r.reported_value, r.status,
-                    r.created_at, r.view_count,
-                    c.name as category_name, rt.name as report_type_name, rt.severity,
-                    rep.name as reporter_name
+                    r.created_at, r.view_count, r.is_anonymous,
+                    c.name  AS category_name,  c.slug AS category_slug,
+                    rt.name AS report_type_name, rt.severity,
+                    CASE WHEN r.is_anonymous = 1 THEN 'Anonim' ELSE rep.name END AS reporter_name
              FROM reports r
-             JOIN categories c ON r.category_id = c.id
-             JOIN report_types rt ON r.report_type_id = rt.id
-             JOIN reporters rep ON r.reporter_id = rep.id
+             JOIN categories   c   ON r.category_id    = c.id
+             JOIN report_types rt  ON r.report_type_id = rt.id
+             JOIN reporters    rep ON r.reporter_id     = rep.id
              WHERE {$where}
              ORDER BY r.created_at DESC
              LIMIT {$perPage} OFFSET {$offset}",

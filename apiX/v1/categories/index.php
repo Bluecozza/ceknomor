@@ -19,11 +19,30 @@ if ($method === 'GET' && preg_match('#^/api/v1/categories/?$#', $uri)) {
     $db = Database::getInstance();
 
     $categories = $db->fetchAll(
-        "SELECT id, name, slug, icon, description, placeholder_text
+        "SELECT id, name, slug, icon, description
          FROM categories
          WHERE is_active = 1
          ORDER BY sort_order ASC, name ASC"
     );
+
+    // Tambahkan placeholder_text secara dinamis berdasarkan slug
+    $placeholders = [
+        'phone'        => 'Contoh: 08123456789',
+        'bank_account' => 'Contoh: 1234567890',
+        'dana'         => 'Contoh: 08123456789',
+        'ovo'          => 'Contoh: 08123456789',
+        'gopay'        => 'Contoh: 08123456789',
+        'shopeepay'    => 'Contoh: 08123456789',
+        'linkaja'      => 'Contoh: 08123456789',
+        'email'        => 'Contoh: user@email.com',
+        'social'       => 'Contoh: @username',
+        'other'        => 'Masukkan data yang dilaporkan',
+    ];
+
+    foreach ($categories as &$cat) {
+        $cat['placeholder_text'] = $placeholders[$cat['slug']] ?? 'Masukkan data yang dilaporkan';
+    }
+    unset($cat);
 
     Response::success([
         'categories' => $categories
@@ -39,11 +58,24 @@ elseif ($method === 'GET' && preg_match('#^/api/v1/categories/report-types/?$#',
     $db = Database::getInstance();
 
     $reportTypes = $db->fetchAll(
-        "SELECT id, name, slug, description, severity, color_class
+        "SELECT id, name, slug, description, severity
          FROM report_types
          WHERE is_active = 1
          ORDER BY severity DESC, name ASC"
     );
+
+    // Tambahkan color_class secara dinamis berdasarkan severity
+    $severityColors = [
+        1 => 'secondary',
+        2 => 'warning',
+        3 => 'orange',
+        4 => 'danger',
+    ];
+
+    foreach ($reportTypes as &$rt) {
+        $rt['color_class'] = $severityColors[(int)$rt['severity']] ?? 'secondary';
+    }
+    unset($rt);
 
     Response::success([
         'report_types' => $reportTypes

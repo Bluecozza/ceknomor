@@ -48,7 +48,7 @@ if ($method === 'GET') {
     $result = $service->getAdminList($filters, $page, $perPage);
 
     Response::paginated(
-        $result['reports'],
+        $result['data'],
         $result['total'],
         $page,
         $perPage,
@@ -76,7 +76,7 @@ if ($method === 'POST') {
         $files = $_FILES['evidence'];
         // Normalize $_FILES array untuk multiple file
         if (!is_array($files['name'])) {
-            $files = array_map(fn($v) => [$v], $files);
+            $files = array_map(function($v) { return [$v]; }, $files);
         }
 
         for ($i = 0; $i < count($files['name']); $i++) {

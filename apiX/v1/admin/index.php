@@ -132,14 +132,14 @@ elseif ($method === 'GET' && preg_match('#^/api/v1/admin/reports/(\d+)/?$#', $ur
                 c.name  AS category_name, c.slug  AS category_slug, c.icon AS category_icon,
                 rt.name AS report_type_name, rt.severity,
                 rp.name AS reporter_name, rp.contact AS reporter_contact,
-                rp.contact_type, rp.ip_address, rp.is_verified,
-                rs.score AS risk_score, rs.level AS risk_level, rs.approved_count AS risk_approved
+                rp.contact_type, rp.ip_address,
+                rs.risk_score, rs.risk_level, rs.approved_reports AS risk_approved
          FROM reports r
          LEFT JOIN categories   c  ON c.id  = r.category_id
          LEFT JOIN report_types rt ON rt.id = r.report_type_id
          LEFT JOIN reporters    rp ON rp.id = r.reporter_id
-         LEFT JOIN risk_scores  rs ON rs.normalized_value = r.reported_value_normalized
-                                   AND rs.category_id     = r.category_id
+         LEFT JOIN risk_scores  rs ON rs.reported_value_normalized = r.reported_value_normalized
+                                   AND rs.category_id = r.category_id
          WHERE r.id = ?",
         [$id]
     );
@@ -611,7 +611,7 @@ elseif ($method === 'GET' && preg_match('#^/api/v1/admin/risk-scores/?$#', $uri)
     $params = [];
 
     if ($level) {
-        $where   .= ' AND rs.level = ?';
+        $where   .= ' AND rs.risk_level = ?';
         $params[] = $level;
     }
     if ($catId) {
@@ -625,11 +625,15 @@ elseif ($method === 'GET' && preg_match('#^/api/v1/admin/risk-scores/?$#', $uri)
     );
 
     $rows = $db->fetchAll(
-        "SELECT rs.*, c.name AS category_name, c.slug AS category_slug
+        "SELECT rs.id, rs.reported_value_normalized AS normalized_value,
+                rs.category_id, rs.total_reports, rs.approved_reports,
+                rs.risk_score AS score, rs.risk_level AS level,
+                rs.last_reported_at, rs.first_reported_at,
+                c.name AS category_name, c.slug AS category_slug
          FROM risk_scores rs
          LEFT JOIN categories c ON c.id = rs.category_id
          WHERE {$where}
-         ORDER BY rs.score DESC
+         ORDER BY rs.risk_score DESC
          LIMIT {$perPage} OFFSET {$offset}",
         $params
     );

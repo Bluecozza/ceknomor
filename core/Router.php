@@ -183,7 +183,7 @@ class Router
 
         if (preg_match($regex, $uri, $matches)) {
             // Ambil hanya named captures (parameter)
-            return array_filter($matches, fn($k) => !is_int($k), ARRAY_FILTER_USE_KEY);
+            return array_filter($matches, function($k) { return !is_int($k); }, ARRAY_FILTER_USE_KEY);
         }
 
         return false;

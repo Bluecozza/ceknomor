@@ -492,7 +492,7 @@ function check_rate_limit(string $identifier, int $limit = 60, int $window = 60)
 
     $now  = time();
     $data = file_exists($file) ? json_decode(file_get_contents($file), true) : [];
-    $data = array_filter($data ?? [], fn($t) => $t > $now - $window);
+    $data = array_filter($data ?? [], function($t) use ($now, $window) { return $t > $now - $window; });
 
     if (count($data) >= $limit) return false;
 
