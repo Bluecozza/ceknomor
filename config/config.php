@@ -13,15 +13,16 @@ define('APP_DEBUG',   APP_ENV === 'development');
 define('APP_VERSION', '1.0.0');
 
 // ── Path ─────────────────────────────────────────────────────
-define('ROOT_PATH',    dirname(__DIR__));
-define('CONFIG_PATH',  ROOT_PATH . '/config');
-define('CORE_PATH',    ROOT_PATH . '/core');
-define('MODULE_PATH',  ROOT_PATH . '/modules');
-define('PUBLIC_PATH',  ROOT_PATH . '/public');
-define('UPLOAD_PATH',  PUBLIC_PATH . '/uploads');
-define('LOG_PATH',     ROOT_PATH . '/logs');
-define('VIEW_PATH',    ROOT_PATH . '/views');
-define('ADMIN_PATH',   ROOT_PATH . '/admin');
+// Gunakan defined() agar aman jika bootstrap.php sudah mendefinisikan ROOT_PATH
+defined('ROOT_PATH')   || define('ROOT_PATH',   dirname(__DIR__));
+defined('CONFIG_PATH') || define('CONFIG_PATH', ROOT_PATH . '/config');
+defined('CORE_PATH')   || define('CORE_PATH',   ROOT_PATH . '/core');
+defined('MODULE_PATH') || define('MODULE_PATH', ROOT_PATH . '/modules');
+defined('PUBLIC_PATH') || define('PUBLIC_PATH', ROOT_PATH . '/public');
+defined('UPLOAD_PATH') || define('UPLOAD_PATH', PUBLIC_PATH . '/uploads');
+defined('LOG_PATH')    || define('LOG_PATH',    ROOT_PATH . '/logs');
+defined('VIEW_PATH')   || define('VIEW_PATH',   ROOT_PATH . '/views');
+defined('ADMIN_PATH')  || define('ADMIN_PATH',  ROOT_PATH . '/admin');
 
 // ── URL ───────────────────────────────────────────────────────
 $protocol  = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';

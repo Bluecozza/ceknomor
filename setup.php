@@ -14,11 +14,12 @@
  *  5. Generate APP_KEY dan JWT_SECRET
  */
 
-define('ROOT', __DIR__);
+define('SETUP_ROOT', __DIR__);
 define('SETUP_VERSION', '1.0.0');
 
 // ─── Warna CLI ────────────────────────────────────────────────
-function c(string $text, string $color = 'reset'): string {
+function c(string $text, string $color = ''): string
+{
     $colors = [
         'red'    => "\033[31m",
         'green'  => "\033[32m",
@@ -26,127 +27,127 @@ function c(string $text, string $color = 'reset'): string {
         'blue'   => "\033[34m",
         'cyan'   => "\033[36m",
         'bold'   => "\033[1m",
-        'reset'  => "\033[0m",
+        ''       => "\033[0m",
     ];
-    return ($colors[$color] ?? '') . $text . $colors['reset'];
+    return ($colors[$color] ?? '') . $text . "\033[0m";
 }
 
-function info(string $msg)    { echo c('  ℹ  ', 'cyan')   . $msg . "\n"; }
-function success(string $msg) { echo c('  ✓  ', 'green')  . $msg . "\n"; }
-function warn(string $msg)    { echo c('  ⚠  ', 'yellow') . $msg . "\n"; }
-function error(string $msg)   { echo c('  ✕  ', 'red')    . $msg . "\n"; }
-function title(string $msg)   { echo "\n" . c("═══ {$msg} ", 'bold') . "\n"; }
-function ask(string $prompt, string $default = ''): string {
-    $hint = $default ? " [{$default}]" : '';
-    echo c("  ?  ", 'blue') . $prompt . $hint . ': ';
+function info(string $msg)    { echo c('  i  ', 'cyan')   . $msg . "\n"; }
+function ok(string $msg)      { echo c('  v  ', 'green')  . $msg . "\n"; }
+function warn(string $msg)    { echo c('  !  ', 'yellow') . $msg . "\n"; }
+function fail(string $msg)    { echo c('  x  ', 'red')    . $msg . "\n"; }
+function title(string $msg)   { echo "\n" . c("=== {$msg} ", 'bold') . "\n"; }
+function ask(string $prompt, string $default = ''): string
+{
+    $hint  = $default !== '' ? " [{$default}]" : '';
+    echo c('  ?  ', 'blue') . $prompt . $hint . ': ';
     $input = trim(fgets(STDIN));
     return $input !== '' ? $input : $default;
 }
 
 // ─── HEADER ───────────────────────────────────────────────────
-echo "\n" . c("┌─────────────────────────────────────────┐", 'cyan') . "\n";
-echo c("│     cek.resource.my.id — Setup v" . SETUP_VERSION . "     │", 'cyan') . "\n";
-echo c("└─────────────────────────────────────────┘", 'cyan') . "\n\n";
+echo "\n" . c("+-----------------------------------------+\n", 'cyan');
+echo      c("|   cek.resource.my.id -- Setup v" . SETUP_VERSION . "      |\n", 'cyan');
+echo      c("+-----------------------------------------+\n\n", 'cyan');
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // STEP 1 — Cek requirement
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 title("STEP 1: Checking Requirements");
 
-$ok = true;
+$allOk = true;
 
 // PHP version
-$phpVersion = PHP_VERSION;
-if (version_compare($phpVersion, '8.1.0', '>=')) {
-    success("PHP {$phpVersion} ✓");
+if (version_compare(PHP_VERSION, '7.4.0', '>=')) {
+    ok("PHP " . PHP_VERSION);
 } else {
-    error("PHP 8.1+ dibutuhkan, Anda menggunakan {$phpVersion}");
-    $ok = false;
+    fail("PHP 7.4+ dibutuhkan, Anda menggunakan " . PHP_VERSION);
+    $allOk = false;
 }
 
 // Required extensions
-$required = ['pdo', 'pdo_mysql', 'json', 'mbstring', 'openssl', 'fileinfo'];
-foreach ($required as $ext) {
+foreach (['pdo', 'pdo_mysql', 'json', 'mbstring', 'openssl'] as $ext) {
     if (extension_loaded($ext)) {
-        success("Extension {$ext} ✓");
+        ok("Extension {$ext}");
     } else {
-        error("Extension {$ext} tidak tersedia");
-        $ok = false;
+        fail("Extension {$ext} tidak tersedia");
+        $allOk = false;
     }
 }
 
-if (!$ok) {
-    error("Setup gagal: requirement tidak terpenuhi.");
+if (!$allOk) {
+    fail("Setup gagal: requirement tidak terpenuhi.");
     exit(1);
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // STEP 2 — Buat .env
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 title("STEP 2: Environment Configuration");
 
-$envPath     = ROOT . '/.env';
-$envExample  = ROOT . '/.env.example';
+$envPath = SETUP_ROOT . '/.env';
+$skipEnv = false;
 
 if (file_exists($envPath)) {
     $overwrite = ask(".env sudah ada. Timpa? (y/N)", "N");
     if (strtolower($overwrite) !== 'y') {
         info("Melewati pembuatan .env");
-        goto step3;
+        $skipEnv = true;
     }
 }
 
-info("Masukkan konfigurasi database:");
-$dbHost = ask("DB_HOST", "localhost");
-$dbPort = ask("DB_PORT", "3306");
-$dbName = ask("DB_NAME", "cek_resource");
-$dbUser = ask("DB_USER", "root");
-$dbPass = ask("DB_PASS", "");
+if (!$skipEnv) {
+    info("Masukkan konfigurasi database:");
+    $dbHost = ask("DB_HOST", "localhost");
+    $dbPort = ask("DB_PORT", "3306");
+    $dbName = ask("DB_NAME", "cek_resource");
+    $dbUser = ask("DB_USER", "root");
+    $dbPass = ask("DB_PASS", "");
 
-$appKey    = bin2hex(random_bytes(32));
-$jwtSecret = bin2hex(random_bytes(32));
+    $appKey    = bin2hex(random_bytes(32));
+    $jwtSecret = bin2hex(random_bytes(32));
+    $genDate   = date('Y-m-d H:i:s');
 
-$envContent = <<<ENV
-# ============================================================
-# cek.resource.my.id — Environment Configuration
-# Generated by setup.php on {$_SERVER['REQUEST_TIME_FLOAT'] ? date('Y-m-d H:i:s') : date('Y-m-d H:i:s')}
-# ============================================================
+    $envLines = [
+        "# ============================================================",
+        "# cek.resource.my.id -- Environment Configuration",
+        "# Generated by setup.php on {$genDate}",
+        "# ============================================================",
+        "",
+        "APP_ENV=development",
+        "",
+        "DB_HOST={$dbHost}",
+        "DB_PORT={$dbPort}",
+        "DB_NAME={$dbName}",
+        "DB_USER={$dbUser}",
+        "DB_PASS={$dbPass}",
+        "",
+        "APP_KEY={$appKey}",
+        "JWT_SECRET={$jwtSecret}",
+        "",
+        "UPLOAD_PATH=public/uploads",
+        "UPLOAD_MAX_SIZE=5242880",
+    ];
 
-APP_ENV=development
+    file_put_contents($envPath, implode("\n", $envLines) . "\n");
+    ok(".env berhasil dibuat");
+    ok("APP_KEY   : " . substr($appKey, 0, 16) . "...");
+    ok("JWT_SECRET: " . substr($jwtSecret, 0, 16) . "...");
+}
 
-DB_HOST={$dbHost}
-DB_PORT={$dbPort}
-DB_NAME={$dbName}
-DB_USER={$dbUser}
-DB_PASS={$dbPass}
-
-APP_KEY={$appKey}
-JWT_SECRET={$jwtSecret}
-
-UPLOAD_PATH=public/uploads
-UPLOAD_MAX_SIZE=5242880
-ENV;
-
-file_put_contents($envPath, $envContent);
-success(".env berhasil dibuat");
-success("APP_KEY  : " . substr($appKey, 0, 16) . "...");
-success("JWT_SECRET: " . substr($jwtSecret, 0, 16) . "...");
-
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // STEP 3 — Import database
-// ═══════════════════════════════════════════════════════════════
-step3:
+// ═══════════════════════════════════════════
 title("STEP 3: Database Setup");
 
-// Load .env
+// Load .env ke variabel
 $envVars = [];
 if (file_exists($envPath)) {
     foreach (file($envPath) as $line) {
         $line = trim($line);
-        if ($line && $line[0] !== '#' && str_contains($line, '=')) {
-            [$k, $v]     = explode('=', $line, 2);
-            $envVars[trim($k)] = trim($v);
-        }
+        if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) continue;
+        list($k, $v)     = explode('=', $line, 2);
+        $envVars[trim($k)] = trim($v);
     }
 }
 
@@ -158,57 +159,63 @@ $dbPass = $envVars['DB_PASS'] ?? '';
 
 info("Mencoba koneksi ke MySQL ({$dbHost}:{$dbPort})...");
 
+$dbOk = false;
 try {
-    // Koneksi tanpa nama database dulu
     $pdo = new PDO(
         "mysql:host={$dbHost};port={$dbPort};charset=utf8mb4",
         $dbUser,
         $dbPass,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
-    success("Koneksi MySQL berhasil");
+    ok("Koneksi MySQL berhasil");
+    $dbOk = true;
+} catch (PDOException $e) {
+    fail("Koneksi database gagal: " . $e->getMessage());
+    warn("Pastikan MySQL berjalan dan kredensial di .env sudah benar.");
+    warn("Anda bisa import database.sql secara manual via phpMyAdmin.");
+}
 
-    // Cek apakah database sudah ada
+if ($dbOk) {
     $exists = $pdo->query("SHOW DATABASES LIKE '{$dbName}'")->rowCount() > 0;
+    $doImport = true;
 
     if ($exists) {
         $reimport = ask("Database '{$dbName}' sudah ada. Import ulang schema? (y/N)", "N");
         if (strtolower($reimport) !== 'y') {
-            info("Melewati import database");
-            goto step4;
+            info("Melewati import database.");
+            $doImport = false;
         }
     }
 
-    // Import SQL
-    $sqlFile = ROOT . '/database.sql';
-    if (!file_exists($sqlFile)) {
-        error("File database.sql tidak ditemukan!");
-        goto step4;
+    if ($doImport) {
+        $sqlFile = SETUP_ROOT . '/database.sql';
+        if (!file_exists($sqlFile)) {
+            fail("File database.sql tidak ditemukan!");
+        } else {
+            info("Mengimport database.sql...");
+            try {
+                $sql = file_get_contents($sqlFile);
+                $pdo->exec($sql);
+                ok("Database '{$dbName}' berhasil diimport");
+            } catch (PDOException $e) {
+                fail("Import gagal: " . $e->getMessage());
+                warn("Coba import database.sql secara manual via phpMyAdmin.");
+            }
+        }
     }
-
-    info("Mengimport database.sql...");
-    $sql = file_get_contents($sqlFile);
-
-    // Eksekusi per statement
-    $pdo->exec($sql);
-    success("Database '{$dbName}' berhasil diimport");
-
-} catch (PDOException $e) {
-    error("Koneksi database gagal: " . $e->getMessage());
-    warn("Pastikan MySQL berjalan dan kredensial di .env sudah benar");
-    warn("Anda bisa import database.sql secara manual via phpMyAdmin");
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // STEP 4 — Buat direktori
-// ═══════════════════════════════════════════════════════════════
-step4:
+// ═══════════════════════════════════════════
 title("STEP 4: Creating Directories");
 
-$dirs = [
+$year  = date('Y');
+$month = date('m');
+$dirs  = [
     'public/uploads',
-    'public/uploads/' . date('Y'),
-    'public/uploads/' . date('Y/m'),
+    "public/uploads/{$year}",
+    "public/uploads/{$year}/{$month}",
     'public/assets/css',
     'public/assets/js',
     'public/assets/img',
@@ -218,45 +225,50 @@ $dirs = [
 ];
 
 foreach ($dirs as $dir) {
-    $path = ROOT . '/' . $dir;
+    $path = SETUP_ROOT . '/' . $dir;
     if (!is_dir($path)) {
         if (mkdir($path, 0755, true)) {
-            success("Dibuat: {$dir}");
+            ok("Dibuat: {$dir}");
         } else {
-            error("Gagal membuat: {$dir}");
+            fail("Gagal membuat: {$dir}");
         }
     } else {
         info("Sudah ada: {$dir}");
     }
 }
 
-// Buat .htaccess di direktori uploads untuk keamanan
-$uploadsHtaccess = ROOT . '/public/uploads/.htaccess';
+// Security .htaccess di uploads
+$uploadsHtaccess = SETUP_ROOT . '/public/uploads/.htaccess';
 if (!file_exists($uploadsHtaccess)) {
-    file_put_contents($uploadsHtaccess,
-        "Options -Indexes\n" .
-        "<FilesMatch '\.(php|php5|phtml|asp|aspx|cgi|pl)$'>\n" .
-        "    Deny from all\n" .
-        "</FilesMatch>\n"
-    );
-    success("Security .htaccess dibuat di public/uploads/");
+    $htContent = "Options -Indexes\n"
+        . "<FilesMatch \"\\.(php|php5|phtml|asp|aspx|cgi|pl)\$\">\n"
+        . "    Deny from all\n"
+        . "</FilesMatch>\n";
+    file_put_contents($uploadsHtaccess, $htContent);
+    ok("Security .htaccess dibuat di public/uploads/");
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // STEP 5 — Selesai
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 title("STEP 5: Done!");
 
+$lines = [
+    "+-----------------------------------------------------+",
+    "|                                                     |",
+    "|   Setup selesai! Langkah selanjutnya:               |",
+    "|                                                     |",
+    "|   1. Buka http://localhost/cek-resource/            |",
+    "|   2. Login admin: admin@cek.resource.my.id          |",
+    "|      Password   : Admin@1234                        |",
+    "|   3. GANTI PASSWORD default segera!                 |",
+    "|   4. Konfigurasi modul di /admin -> Modul           |",
+    "|                                                     |",
+    "+-----------------------------------------------------+",
+];
+
 echo "\n";
-echo c("┌─────────────────────────────────────────────────────┐\n", 'green');
-echo c("│                                                     │\n", 'green');
-echo c("│   Setup selesai! Langkah selanjutnya:               │\n", 'green');
-echo c("│                                                     │\n", 'green');
-echo c("│   1. Buka http://localhost/cek-resource/            │\n", 'green');
-echo c("│   2. Login admin: admin@cek.resource.my.id          │\n", 'green');
-echo c("│      Password   : Admin@1234                        │\n", 'green');
-echo c("│   3. GANTI PASSWORD default segera!                 │\n", 'green');
-echo c("│   4. Konfigurasi modul di /admin → Modul            │\n", 'green');
-echo c("│                                                     │\n", 'green');
-echo c("└─────────────────────────────────────────────────────┘\n", 'green');
+foreach ($lines as $line) {
+    echo c($line, 'green') . "\n";
+}
 echo "\n";

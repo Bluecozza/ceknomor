@@ -3,8 +3,34 @@
  * core/helpers.php
  * ---------------------------------------------------------------
  * Fungsi-fungsi utilitas global
+ * Kompatibel dengan PHP 7.4+
  * ---------------------------------------------------------------
  */
+
+// ── PHP 7.4 Polyfills ──────────────────────────────────────────
+// str_starts_with, str_ends_with, str_contains tersedia sejak PHP 8.0
+// Polyfill ini memastikan kompatibilitas dengan PHP 7.4
+
+if (!function_exists('str_starts_with')) {
+    function str_starts_with(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+}
+
+if (!function_exists('str_ends_with')) {
+    function str_ends_with(string $haystack, string $needle): bool
+    {
+        return $needle === '' || substr($haystack, -strlen($needle)) === $needle;
+    }
+}
+
+if (!function_exists('str_contains')) {
+    function str_contains(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strpos($haystack, $needle) !== false;
+    }
+}
 
 // ── String Helpers ─────────────────────────────────────────────
 
@@ -124,12 +150,21 @@ function normalize_reported_value(string $value, string $categorySlug): string
 {
     $value = trim($value);
 
-    return match($categorySlug) {
-        'phone'                     => normalize_phone($value),
-        'bank_account', 'dana', 'ovo', 'gopay', 'shopeepay', 'linkaja' => normalize_account($value),
-        'email'                     => normalize_email($value),
-        default                     => strtolower($value),
-    };
+    switch ($categorySlug) {
+        case 'phone':
+            return normalize_phone($value);
+        case 'bank_account':
+        case 'dana':
+        case 'ovo':
+        case 'gopay':
+        case 'shopeepay':
+        case 'linkaja':
+            return normalize_account($value);
+        case 'email':
+            return normalize_email($value);
+        default:
+            return strtolower($value);
+    }
 }
 
 /**
@@ -193,14 +228,14 @@ function get_risk_level(float $score, int $approvedReports = 0): string
  */
 function get_risk_badge(string $level): array
 {
-    return match($level) {
-        'safe'     => ['label' => 'Aman',          'color' => 'success', 'icon' => 'bi-shield-check'],
-        'low'      => ['label' => 'Risiko Rendah',  'color' => 'info',    'icon' => 'bi-shield'],
-        'medium'   => ['label' => 'Risiko Sedang',  'color' => 'warning', 'icon' => 'bi-shield-exclamation'],
-        'high'     => ['label' => 'Risiko Tinggi',  'color' => 'danger',  'icon' => 'bi-shield-x'],
-        'critical' => ['label' => 'BERBAHAYA',       'color' => 'dark',    'icon' => 'bi-shield-fill-x'],
-        default    => ['label' => 'Belum Diketahui', 'color' => 'secondary','icon' => 'bi-question-circle'],
-    };
+    $badges = [
+        'safe'     => ['label' => 'Aman',           'color' => 'success',   'icon' => 'bi-shield-check'],
+        'low'      => ['label' => 'Risiko Rendah',   'color' => 'info',      'icon' => 'bi-shield'],
+        'medium'   => ['label' => 'Risiko Sedang',   'color' => 'warning',   'icon' => 'bi-shield-exclamation'],
+        'high'     => ['label' => 'Risiko Tinggi',   'color' => 'danger',    'icon' => 'bi-shield-x'],
+        'critical' => ['label' => 'BERBAHAYA',        'color' => 'dark',      'icon' => 'bi-shield-fill-x'],
+    ];
+    return $badges[$level] ?? ['label' => 'Belum Diketahui', 'color' => 'secondary', 'icon' => 'bi-question-circle'];
 }
 
 // ── Validation ─────────────────────────────────────────────────

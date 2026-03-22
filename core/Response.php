@@ -33,7 +33,7 @@ class Response
      * @param array  $meta    Metadata tambahan (pagination, dll)
      */
     public static function success(
-        mixed  $data    = null,
+        $data           = null,
         string $message = 'Success',
         int    $code    = self::HTTP_OK,
         array  $meta    = []

@@ -346,11 +346,8 @@ class ReportService
             return ['success' => false, 'message' => "Action tidak valid: {$action}"];
         }
 
-        $status = match($action) {
-            'approve' => 'approved',
-            'reject'  => 'rejected',
-            'flag'    => 'flagged',
-        };
+        $statusMap = ['approve' => 'approved', 'reject' => 'rejected', 'flag' => 'flagged'];
+        $status    = $statusMap[$action];
 
         $this->db->update('reports', [
             'status'       => $status,
@@ -504,17 +501,16 @@ class ReportService
         }
     }
 
-    private function getSetting(string $key, mixed $default = null): mixed
+    private function getSetting(string $key, $default = null)
     {
         $row = $this->db->fetchOne("SELECT value, type FROM settings WHERE `key` = ?", [$key]);
         if (!$row) return $default;
 
-        return match($row['type']) {
-            'boolean' => (bool)(int)$row['value'],
-            'integer' => (int)$row['value'],
-            'json'    => json_decode($row['value'], true),
-            default   => $row['value'],
-        };
+        switch ($row['type']) {
+            case 'boolean': return (bool)(int)$row['value'];
+            case 'integer': return (int)$row['value'];
+            case 'json':    return json_decode($row['value'], true);
+            default:        return $row['value'];
+        }
     }
--e 
 }

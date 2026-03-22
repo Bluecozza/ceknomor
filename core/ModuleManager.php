@@ -238,7 +238,7 @@ class ModuleManager
      * @param string $hookName Nama hook
      * @param mixed  ...$args  Argumen yang diteruskan ke callback
      */
-    public function triggerHook(string $hookName, mixed ...$args): void
+    public function triggerHook(string $hookName, ...$args): void
     {
         if (empty($this->hooks[$hookName])) return;
 

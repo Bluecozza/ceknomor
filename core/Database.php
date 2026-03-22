@@ -95,8 +95,9 @@ class Database
 
     /**
      * Ambil nilai satu kolom dari satu baris
+     * @return mixed
      */
-    public function fetchColumn(string $sql, array $params = []): mixed
+    public function fetchColumn(string $sql, array $params = [])
     {
         return $this->query($sql, $params)->fetchColumn();
     }
@@ -170,7 +171,7 @@ class Database
      * @return mixed Nilai return dari callback
      * @throws Throwable
      */
-    public function transaction(callable $callback): mixed
+    public function transaction(callable $callback)
     {
         $this->beginTransaction();
         try {

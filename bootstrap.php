@@ -14,10 +14,11 @@ defined('ROOT_PATH') || define('ROOT_PATH', __DIR__);
 require_once ROOT_PATH . '/config/config.php';
 
 // 2. Load core classes & helpers
+// helpers.php HARUS dimuat pertama karena berisi polyfill PHP 7.4
+require_once CORE_PATH . '/helpers.php';
 require_once CORE_PATH . '/Database.php';
 require_once CORE_PATH . '/Response.php';
 require_once CORE_PATH . '/Router.php';
-require_once CORE_PATH . '/helpers.php';
 require_once CORE_PATH . '/ModuleManager.php';
 require_once CORE_PATH . '/ReportService.php';
 
