@@ -365,50 +365,67 @@ class ReportService
      */
     public function moderate(int $id, string $action, int $adminId, string $note = ''): array
     {
-        $report = $this->db->fetchOne("SELECT * FROM reports WHERE id = ?", [$id]);
-        if (!$report) {
-            return ['success' => false, 'message' => 'Laporan tidak ditemukan'];
+        try {
+            $report = $this->db->fetchOne("SELECT * FROM reports WHERE id = ?", [$id]);
+            if (!$report) {
+                return ['success' => false, 'message' => 'Laporan tidak ditemukan'];
+            }
+
+            $validActions = ['approve', 'reject', 'flag'];
+            if (!in_array($action, $validActions, true)) {
+                return ['success' => false, 'message' => "Action tidak valid: {$action}"];
+            }
+
+            $statusMap = ['approve' => 'approved', 'reject' => 'rejected', 'flag' => 'flagged'];
+            $status    = $statusMap[$action];
+
+            $this->db->update('reports', [
+                'status'       => $status,
+                'admin_note'   => $note,
+                'moderated_by' => $adminId,
+                'moderated_at' => date('Y-m-d H:i:s'),
+            ], 'id = ?', [$id]);
+
+            // Update risk score jika disetujui atau ditolak
+            if (in_array($status, ['approved', 'rejected'])) {
+                try {
+                    $this->updateRiskScore(
+                        $report['reported_value_normalized'],
+                        (int)$report['category_id']
+                    );
+                } catch (Exception $e) {
+                    // Risk score update gagal — tidak perlu hentikan proses
+                    error_log('updateRiskScore error: ' . $e->getMessage());
+                }
+            }
+
+            // Log aktivitas
+            try {
+                $this->db->insert('activity_logs', [
+                    'admin_id'    => $adminId,
+                    'action'      => "report.{$action}",
+                    'entity_type' => 'report',
+                    'entity_id'   => $id,
+                    'description' => $note ?: "Status diubah ke {$status}",
+                    'ip_address'  => get_client_ip(),
+                    'created_at'  => date('Y-m-d H:i:s'),
+                ]);
+            } catch (Exception $e) {
+                error_log('activity_logs insert error: ' . $e->getMessage());
+            }
+
+            $updated = $this->db->fetchOne("SELECT * FROM reports WHERE id = ?", [$id]);
+
+            return [
+                'success' => true,
+                'message' => "Laporan berhasil di-{$action}",
+                'report'  => $updated,
+            ];
+
+        } catch (Exception $e) {
+            error_log('moderate() error: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()];
         }
-
-        $validActions = ['approve', 'reject', 'flag'];
-        if (!in_array($action, $validActions, true)) {
-            return ['success' => false, 'message' => "Action tidak valid: {$action}"];
-        }
-
-        $statusMap = ['approve' => 'approved', 'reject' => 'rejected', 'flag' => 'flagged'];
-        $status    = $statusMap[$action];
-
-        $this->db->update('reports', [
-            'status'       => $status,
-            'admin_note'   => $note,
-            'moderated_by' => $adminId,
-            'moderated_at' => date('Y-m-d H:i:s'),
-        ], 'id = ?', [$id]);
-
-        // Update risk score jika disetujui atau ditolak
-        if (in_array($status, ['approved', 'rejected'])) {
-            $this->updateRiskScore($report['reported_value_normalized'], $report['category_id']);
-        }
-
-        // Log aktivitas
-        $this->db->insert('activity_logs', [
-            'admin_id'    => $adminId,
-            'action'      => "report.{$action}",
-            'entity_type' => 'report',
-            'entity_id'   => $id,
-            'description' => $note ?: "Status diubah ke {$status}",
-            'ip_address'  => get_client_ip(),
-            'created_at'  => date('Y-m-d H:i:s'),
-        ]);
-
-        // Ambil laporan terbaru untuk response
-        $updated = $this->db->fetchOne("SELECT * FROM reports WHERE id = ?", [$id]);
-
-        return [
-            'success' => true,
-            'message' => "Laporan berhasil di-{$action}",
-            'report'  => $updated,
-        ];
     }
 
     // ── Statistics ─────────────────────────────────────────────

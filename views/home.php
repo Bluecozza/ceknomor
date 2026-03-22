@@ -500,10 +500,10 @@
         </a>
         <div class="footer-links">
             <a href="/report"><i class="bi bi-plus-circle"></i> Buat Laporan</a>
- <!--           <a href="/docs"><i class="bi bi-book"></i> Dokumentasi</a>
+            <a href="/docs"><i class="bi bi-book"></i> Dokumentasi</a>
+            <a href="/admin"><i class="bi bi-person-lock"></i> Admin</a>
             <a href="/api/v1/search?q=test" target="_blank"><i class="bi bi-code-slash"></i> API</a>
             <a href="mailto:info@cek.resource.my.id"><i class="bi bi-envelope"></i> Kontak</a>
-			-->
         </div>
     </div>
 </footer>
@@ -1048,15 +1048,27 @@ function showToast(message, type = 'info') {
 
 // ── Load Stats on Page Load ──────────────────────────────────
 $(document).ready(function() {
-    // Load statistik singkat dari API
-    $.get(`${API_BASE}/search?q=__stats__`)
-        .fail(() => {}) // Abaikan jika gagal
-        .always(() => {
-            // Placeholder stats – bisa diganti dengan endpoint khusus
-            $('#statReports').text('—');
-            $('#statSearches').text('—');
-            $('#statDangers').text('—');
-        });
+    // Load statistik dari endpoint publik
+    $.ajax({
+        url:      `${API_BASE}/stats`,
+        method:   'GET',
+        dataType: 'json',
+        timeout:  8000,
+        success: function(res) {
+            if (res.success && res.data) {
+                const d = res.data;
+                $('#statReports').text(formatStatNum(d.total_reports   || 0));
+                $('#statSearches').text(formatStatNum(d.searches_today  || 0));
+                $('#statDangers').text(formatStatNum(d.high_risk_count  || 0));
+            }
+        },
+        error: function() {
+            // Tetap tampilkan 0 jika gagal, jangan biarkan —
+            $('#statReports').text('0');
+            $('#statSearches').text('0');
+            $('#statDangers').text('0');
+        }
+    });
 
     // Handle pre-filled query dari URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -1066,6 +1078,12 @@ $(document).ready(function() {
         setTimeout(doSearch, 500);
     }
 });
+
+function formatStatNum(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'jt';
+    if (n >= 1000)    return (n / 1000).toFixed(1) + 'rb';
+    return n.toLocaleString('id-ID');
+}
 </script>
 
 </body>

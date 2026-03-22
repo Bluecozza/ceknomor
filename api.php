@@ -53,8 +53,31 @@ function requireAdmin(array $roles = ['superadmin','admin','moderator']): array 
 // ROUTING
 // ════════════════════════════════════════════════════════════
 
+// ── /stats (publik) ──────────────────────────────────────────
+if ($method === 'GET' && preg_match('#^/stats$#', $path)) {
+    // Cache sederhana pakai file agar tidak overload DB
+    $cacheFile = LOG_PATH . '/stats_cache.json';
+    $cacheTtl  = 300; // 5 menit
+
+    if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTtl) {
+        $stats = json_decode(file_get_contents($cacheFile), true);
+    } else {
+        $stats = [
+            'total_reports'   => (int)$db->fetchColumn("SELECT COUNT(*) FROM reports WHERE status = 'approved'"),
+            'searches_today'  => (int)$db->fetchColumn("SELECT COUNT(*) FROM search_logs WHERE DATE(created_at) = CURDATE()"),
+            'high_risk_count' => (int)$db->fetchColumn("SELECT COUNT(*) FROM risk_scores WHERE risk_level IN ('high','critical')"),
+            'total_reporters' => (int)$db->fetchColumn("SELECT COUNT(*) FROM reporters"),
+        ];
+        // Simpan cache
+        if (is_dir(LOG_PATH)) {
+            @file_put_contents($cacheFile, json_encode($stats));
+        }
+    }
+    Response::success($stats);
+}
+
 // ── /search ──────────────────────────────────────────────────
-if (preg_match('#^/search$#', $path) && in_array($method, ['GET','POST'])) {
+elseif (preg_match('#^/search$#', $path) && in_array($method, ['GET','POST'])) {
     if (!check_rate_limit('search_'.get_client_ip(), 30, 60)) Response::rateLimited(60);
 
     if ($method === 'GET') {
