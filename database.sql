@@ -156,12 +156,18 @@ CREATE TABLE `admins` (
   `is_active`    TINYINT(1) DEFAULT 1,
   `last_login_at` TIMESTAMP NULL,
   `last_login_ip` VARCHAR(45),
-  `created_at`   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  `created_at`   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- Default superadmin (password: Admin@1234)
-INSERT INTO `admins` (`name`, `email`, `password`, `role`) VALUES
-('Super Admin', 'admin@cek.resource.my.id', '$2y$12$LqzEq1QEaT.WZK6WyQnzHuZBj.t8vFqFiN7ZqX0bqb1ZxX4XqXeXa', 'superadmin');
+-- ============================================================
+-- CATATAN: Akun admin default TIDAK disertakan di sini
+-- karena hash bcrypt harus digenerate oleh PHP server Anda.
+--
+-- Setelah import, buat akun admin dengan salah satu cara:
+--   1. Buka: http://localhost/cek-resource/reset-admin.php
+--   2. Atau jalankan: php artisan.php admin:create
+-- ============================================================
 
 -- ------------------------------------------------------------
 -- TABLE: modules

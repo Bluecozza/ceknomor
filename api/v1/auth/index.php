@@ -63,10 +63,11 @@ if ($method === 'POST' && $action === 'login') {
     $db->insert('activity_logs', [
         'admin_id'    => $admin['id'],
         'action'      => 'auth.login',
-        'target_type' => 'admins',
-        'target_id'   => $admin['id'],
-        'details'     => 'Login berhasil',
+        'entity_type' => 'admin',
+        'entity_id'   => $admin['id'],
+        'description' => 'Login berhasil dari IP ' . $ip,
         'ip_address'  => $ip,
+        'created_at'  => date('Y-m-d H:i:s'),
     ]);
 
     Response::success([
@@ -83,8 +84,7 @@ if ($method === 'POST' && $action === 'login') {
 
 // ── GET /api/v1/auth/me ───────────────────────────────────────
 if ($method === 'GET' && $action === 'me') {
-    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-    $token      = str_starts_with($authHeader, 'Bearer ') ? substr($authHeader, 7) : '';
+    $token = get_bearer_token();
 
     if (empty($token)) {
         Response::unauthorized();
@@ -109,10 +109,7 @@ if ($method === 'GET' && $action === 'me') {
 
 // ── POST /api/v1/auth/logout ──────────────────────────────────
 if ($method === 'POST' && $action === 'logout') {
-    // Dengan JWT stateless, logout di client-side dengan menghapus token
-    // Di sini kita hanya log aktivitas jika ada token yang valid
-    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-    $token      = str_starts_with($authHeader, 'Bearer ') ? substr($authHeader, 7) : '';
+    $token = get_bearer_token();
 
     if (!empty($token)) {
         $payload = verify_jwt($token);
@@ -120,10 +117,11 @@ if ($method === 'POST' && $action === 'logout') {
             $db->insert('activity_logs', [
                 'admin_id'    => $payload['admin_id'],
                 'action'      => 'auth.logout',
-                'target_type' => 'admins',
-                'target_id'   => $payload['admin_id'],
-                'details'     => 'Logout',
+                'entity_type' => 'admin',
+                'entity_id'   => $payload['admin_id'],
+                'description' => 'Logout',
                 'ip_address'  => get_client_ip(),
+                'created_at'  => date('Y-m-d H:i:s'),
             ]);
         }
     }

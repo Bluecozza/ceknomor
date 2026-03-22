@@ -60,13 +60,7 @@ Response::error('Endpoint tidak valid', 404);
 // ── Helper: Require Admin Auth ─────────────────────────────────
 function require_admin_auth(): array
 {
-    // Cek JWT dari header Authorization
-    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-    $token      = '';
-
-    if (str_starts_with($authHeader, 'Bearer ')) {
-        $token = substr($authHeader, 7);
-    }
+    $token = get_bearer_token();
 
     if (empty($token)) {
         Response::unauthorized('Token autentikasi diperlukan');

@@ -7,21 +7,16 @@
 
 require_once dirname(__DIR__, 3) . '/bootstrap.php';
 
-use Core\Response;
-use Core\Database;
-use Core\ReportService;
-
 // ---------------------------------------------------------------
 // Helper: Verifikasi JWT dan kembalikan payload admin
 // ---------------------------------------------------------------
 function requireAdmin(array $roles = ['superadmin', 'admin', 'moderator']): array
 {
-    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-    if (!str_starts_with($authHeader, 'Bearer ')) {
+    $token = get_bearer_token();
+    if (empty($token)) {
         Response::unauthorized('Token tidak ditemukan');
     }
 
-    $token   = substr($authHeader, 7);
     $payload = verify_jwt($token);
 
     if (!$payload) {

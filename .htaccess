@@ -12,6 +12,18 @@ RewriteEngine On
 # Jika berjalan di subdirektori (e.g., /cek-resource), uncomment dan sesuaikan:
 # RewriteBase /cek-resource
 
+## ── Fix Authorization Header (Apache strips it by default) ────
+## Wajib agar JWT Bearer token bisa dibaca PHP
+<IfModule mod_rewrite.c>
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+## Alternatif untuk beberapa konfigurasi Apache:
+<IfModule mod_setenvif.c>
+    SetEnvIfNoCase ^Authorization$ "(.+)" HTTP_AUTHORIZATION=$1
+</IfModule>
+## Untuk PHP-FPM / CGI mode:
+CGIPassAuth On
+
 ## ── Security Headers ──────────────────────────────────────────
 <IfModule mod_headers.c>
     # Cegah clickjacking

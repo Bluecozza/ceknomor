@@ -7,9 +7,6 @@
 
 require_once dirname(__DIR__, 3) . '/bootstrap.php';
 
-use Core\Response;
-use Core\Database;
-
 $method = $_SERVER['REQUEST_METHOD'];
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 

@@ -221,7 +221,6 @@ if ($dbOk && $pdo !== null) {
             info("Mengimport database.sql...");
             try {
                 $sql = file_get_contents($sqlFile);
-                // PDO::exec tidak bisa multi-statement, gunakan loop
                 // Hapus komentar dan split per statement
                 $sql = preg_replace('/--[^\n]*\n/', "\n", $sql);
                 $sql = preg_replace('/\/\*.*?\*\//s', '', $sql);
@@ -233,7 +232,6 @@ if ($dbOk && $pdo !== null) {
                     try {
                         $pdo->exec($stmt);
                     } catch (PDOException $e) {
-                        // Abaikan error "table already exists" dll
                         if (strpos($e->getMessage(), 'already exists') === false) {
                             warn("Peringatan query: " . substr($e->getMessage(), 0, 80));
                         }
@@ -245,6 +243,39 @@ if ($dbOk && $pdo !== null) {
                 warn("Coba import database.sql secara manual via phpMyAdmin.");
             }
         }
+    }
+
+    // ── Buat akun admin default ────────────────────────────
+    info("Membuat akun admin default...");
+    try {
+        // Pastikan gunakan database yang benar
+        $pdo->exec("USE `{$dbName}`");
+        $adminExists = $pdo->query("SELECT COUNT(*) FROM admins")->fetchColumn();
+
+        if ($adminExists > 0) {
+            info("Akun admin sudah ada, melewati pembuatan.");
+        } else {
+            $adminEmail = ask("Email admin", "admin@cek.resource.my.id");
+            $adminPass  = ask("Password admin", "Admin@1234");
+            $adminName  = ask("Nama admin",  "Super Admin");
+
+            // Generate hash bcrypt menggunakan PHP
+            $hash = password_hash($adminPass, PASSWORD_BCRYPT, ['cost' => 10]);
+            $now  = date('Y-m-d H:i:s');
+
+            $stmt = $pdo->prepare(
+                "INSERT INTO admins (name, email, password, role, is_active, created_at, updated_at)
+                 VALUES (?, ?, ?, 'superadmin', 1, ?, ?)"
+            );
+            $stmt->execute([$adminName, strtolower($adminEmail), $hash, $now, $now]);
+
+            ok("Akun admin berhasil dibuat:");
+            ok("  Email   : {$adminEmail}");
+            ok("  Password: {$adminPass}");
+        }
+    } catch (Exception $e) {
+        warn("Gagal membuat admin: " . $e->getMessage());
+        warn("Buka reset-admin.php untuk membuat akun admin secara manual.");
     }
 }
 

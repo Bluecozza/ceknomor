@@ -500,3 +500,74 @@ function check_rate_limit(string $identifier, int $limit = 60, int $window = 60)
     file_put_contents($file, json_encode(array_values($data)), LOCK_EX);
     return true;
 }
+
+// ── Auth Header Helpers ────────────────────────────────────────
+
+/**
+ * Ambil nilai Authorization header dari berbagai sumber.
+ *
+ * Apache sering memstrip header Authorization sebelum sampai ke PHP.
+ * Fungsi ini mencoba berbagai cara untuk mendapatkan header tersebut:
+ *  1. $_SERVER['HTTP_AUTHORIZATION']          — standar, kadang tidak ada
+ *  2. $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] — setelah mod_rewrite redirect
+ *  3. apache_request_headers() / getallheaders() — fungsi Apache khusus
+ *  4. $_SERVER['PHP_AUTH_USER']               — Basic auth fallback
+ *
+ * @return string Nilai Authorization header, atau string kosong jika tidak ada
+ */
+function get_auth_header(): string
+{
+    // 1. Cara standar (bekerja di Nginx, PHP-FPM, dan beberapa Apache)
+    if (!empty($_SERVER['HTTP_AUTHORIZATION'])) {
+        return $_SERVER['HTTP_AUTHORIZATION'];
+    }
+
+    // 2. Setelah RewriteRule pass di .htaccess
+    if (!empty($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+        return $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+    }
+
+    // 3. Via RewriteRule E=HTTP_AUTHORIZATION di .htaccess
+    if (!empty($_SERVER['REDIRECT_HTTP_AUTH_USER'])) {
+        return 'Bearer ' . $_SERVER['REDIRECT_HTTP_AUTH_USER'];
+    }
+
+    // 4. apache_request_headers() — tersedia di mod_php
+    if (function_exists('apache_request_headers')) {
+        $headers = apache_request_headers();
+        // Header tidak case-sensitive
+        foreach ($headers as $name => $value) {
+            if (strtolower($name) === 'authorization') {
+                return $value;
+            }
+        }
+    }
+
+    // 5. getallheaders() — tersedia di beberapa environment
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        foreach ($headers as $name => $value) {
+            if (strtolower($name) === 'authorization') {
+                return $value;
+            }
+        }
+    }
+
+    return '';
+}
+
+/**
+ * Ekstrak Bearer token dari Authorization header.
+ * Mengembalikan string kosong jika tidak ada atau bukan Bearer token.
+ *
+ * @return string Token JWT, atau string kosong
+ */
+function get_bearer_token(): string
+{
+    $header = get_auth_header();
+    if (str_starts_with($header, 'Bearer ')) {
+        return trim(substr($header, 7));
+    }
+    return '';
+}
+
