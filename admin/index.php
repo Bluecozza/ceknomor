@@ -130,7 +130,7 @@
         <a class="nav-link" onclick="showPage('api-keys')"><i class="bi bi-key"></i> API Keys</a>
     </div>
     <div class="sidebar-footer">
-        <div id="adminInfo" class="fw-semibold mb-1 text-white">—</div>
+       
         <a href="/" target="_blank" class="text-muted text-decoration-none small me-2"><i class="bi bi-box-arrow-up-right"></i> Situs</a>
         <a href="#" class="text-muted text-decoration-none small" onclick="doLogout()"><i class="bi bi-box-arrow-right"></i> Keluar</a>
     </div>
