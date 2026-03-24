@@ -704,7 +704,18 @@ elseif (is_dir(MODULE_PATH)) {
         Response::notFound('Endpoint tidak ditemukan: ' . $method . ' /api/v1' . $path);
     }
 }
-
+// ── GET /admin/csvimport-logs (debug endpoint)
+elseif ($method === 'GET' && $path === '/admin/csvimport-logs') {
+    requireAdmin(['superadmin']);
+    $logFile = STORAGE_PATH . '/logs/csvimport.log';
+    if (file_exists($logFile)) {
+        $content = file_get_contents($logFile);
+        $lines = array_reverse(array_slice(explode("\n", $content), -100)); // Last 100 lines
+        Response::success(['logs' => implode("\n", $lines)]);
+    } else {
+        Response::success(['logs' => 'No logs yet']);
+    }
+}
 // ── 404 ────────────────────────────────────────────────────────
 else {
     Response::notFound('Endpoint tidak ditemukan: ' . $method . ' /api/v1' . $path);
