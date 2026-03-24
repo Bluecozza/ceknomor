@@ -24,17 +24,19 @@ class ImportService
         'Image' => 'image_url',
     ];
 
-    public function __construct(array $config)
-    {
-        $this->config = $config;
-        $this->tempPath = ROOT_PATH . '/' . trim($config['temp_storage_path'], '/');
-        $this->db = Database::getInstance();
-        
-        // Ensure temp directory exists
-        if (!is_dir($this->tempPath)) {
-            mkdir($this->tempPath, 0755, true);
-        }
+	public function __construct(array $config)
+{
+    $this->config = $config;
+    // FIX: Add default temp_storage_path if not provided
+    $tempPath = $config['temp_storage_path'] ?? 'storage/imports';
+    $this->tempPath = ROOT_PATH . '/' . trim($tempPath, '/');
+    $this->db = Database::getInstance();
+    
+    if (!is_dir($this->tempPath)) {
+        mkdir($this->tempPath, 0755, true);
     }
+}
+
 
     /**
      * Parse CSV file dan return array of records
@@ -110,7 +112,6 @@ class ImportService
         foreach ($headerMapping as $idx => $fieldName) {
             $value = trim($row[$idx] ?? '');
             
-            // Special handling untuk fields tertentu
             switch ($fieldName) {
                 case 'phones':
                     $record['parsed_data'][$fieldName] = $this->parsePhones($value);
@@ -148,15 +149,17 @@ class ImportService
         }
 
         $phones = array_map('trim', explode(',', $phonesStr));
-        $phones = array_filter($phones); // Remove empty values
+        $phones = array_filter($phones);
         
-        // Normalize phone numbers
         $normalized = [];
         foreach ($phones as $phone) {
-            $normalized[] = $this->normalizePhone($phone);
+            $norm = $this->normalizePhone($phone);
+            if ($norm) {
+                $normalized[] = $norm;
+            }
         }
 
-        return array_filter($normalized); // Remove failed normalization
+        return array_filter($normalized);
     }
 
     /**
@@ -164,21 +167,17 @@ class ImportService
      */
     private function normalizePhone(string $phone): ?string
     {
-        // Remove non-digits
         $phone = preg_replace('/\D/', '', $phone);
         if (empty($phone)) return null;
 
-        // Must be 10-13 digits
         if (strlen($phone) < 10 || strlen($phone) > 13) {
             return null;
         }
 
-        // If starts with 0, replace with 62
         if (substr($phone, 0, 1) === '0') {
             $phone = '62' . substr($phone, 1);
         }
 
-        // If doesn't start with 62, assume it's 62
         if (!str_starts_with($phone, '62')) {
             $phone = '62' . $phone;
         }
@@ -218,7 +217,7 @@ class ImportService
     }
 
     /**
-     * Parse modus — split by comma dan normalize
+     * Parse modus — split by comma
      */
     private function parseModus(string $modusStr): array
     {
@@ -228,18 +227,11 @@ class ImportService
 
         $modi = array_map('trim', explode(',', $modusStr));
         $modi = array_filter($modi);
-        
-        // Map ke modus yang sudah ada di database
-        $mapped = [];
-        foreach ($modi as $m) {
-            $mapped[] = $m; // Bisa di-extend dengan mapping logic
-        }
-
-        return array_values($mapped);
+        return array_values($modi);
     }
 
     /**
-     * Validate semua records — cek duplikasi, missing data, etc
+     * Validate semua records
      */
     private function validateRecords(array $records): array
     {
@@ -247,7 +239,6 @@ class ImportService
         $seenPhones = [];
 
         foreach ($records as $idx => $record) {
-            // Check duplikasi dalam CSV
             foreach ($record['parsed_data']['phones'] ?? [] as $phone) {
                 if (isset($seenPhones[$phone])) {
                     $warnings[] = [
@@ -259,16 +250,6 @@ class ImportService
                 }
             }
 
-            // Check duplikasi dengan database
-            $existingPhones = $this->findExistingPhones($record['parsed_data']['phones'] ?? []);
-            if (!empty($existingPhones)) {
-                $warnings[] = [
-                    'line' => $record['line_no'],
-                    'warning' => "Nomor sudah ada di database: " . implode(', ', $existingPhones)
-                ];
-            }
-
-            // Check missing critical data
             if (empty($record['parsed_data']['description']) && 
                 empty($record['parsed_data']['modus'])) {
                 $warnings[] = [
@@ -282,26 +263,7 @@ class ImportService
     }
 
     /**
-     * Find existing phones in database
-     */
-    private function findExistingPhones(array $phones): array
-    {
-        if (empty($phones)) {
-            return [];
-        }
-
-        $placeholders = implode(',', array_fill(0, count($phones), '?'));
-        $existing = $this->db->fetchAll(
-            "SELECT DISTINCT reported_value_normalized FROM risk_scores 
-             WHERE reported_value_normalized IN ({$placeholders})",
-            $phones
-        );
-
-        return array_column($existing, 'reported_value_normalized');
-    }
-
-    /**
-     * Save import session ke database untuk preview
+     * Save import session
      */
     public function saveImportSession(array $parseResult): string
     {
@@ -330,7 +292,6 @@ class ImportService
 
         $data = json_decode(file_get_contents($sessionFile), true);
         
-        // Check if expired
         if (strtotime($data['expires_at']) < time()) {
             unlink($sessionFile);
             return null;
@@ -340,7 +301,7 @@ class ImportService
     }
 
     /**
-     * Update record status dalam session
+     * Update record status
      */
     public function updateRecordStatus(string $sessionId, int $lineNo, string $status, ?string $note = null): bool
     {
@@ -349,7 +310,6 @@ class ImportService
             return false;
         }
 
-        // Find dan update record
         foreach ($session['data']['records'] as &$record) {
             if ($record['line_no'] === $lineNo) {
                 $record['status'] = $status;
@@ -360,7 +320,6 @@ class ImportService
             }
         }
 
-        // Save kembali
         $sessionFile = $this->tempPath . '/' . $sessionId . '.json';
         file_put_contents($sessionFile, json_encode($session, JSON_PRETTY_PRINT));
 
@@ -368,7 +327,7 @@ class ImportService
     }
 
     /**
-     * Submit import — create reports dari approved records
+     * Submit import
      */
     public function submitImport(string $sessionId, int $adminId): array
     {
@@ -387,35 +346,31 @@ class ImportService
         ];
 
         try {
-            $this->db->transaction(function($db) use (&$result, $session, $adminId) {
-                foreach ($session['data']['records'] as $record) {
-                    // Skip yang tidak approved
-                    if ($record['status'] !== 'approved') {
-                        continue;
-                    }
-
-                    $result['total_submitted']++;
-
-                    try {
-                        // Create report
-                        $reportData = $this->normalizeToReport($record['parsed_data']);
-                        $reportData['created_by_import'] = 1;
-                        $reportData['import_session_id'] = $session['session_id'];
-
-                        $reportId = $this->createReport($reportData, $adminId);
-                        if ($reportId) {
-                            $result['successful']++;
-                            $result['created_report_ids'][] = $reportId;
-                        }
-                    } catch (Exception $e) {
-                        $result['failed']++;
-                        $result['errors'][] = [
-                            'line' => $record['line_no'],
-                            'error' => $e->getMessage()
-                        ];
-                    }
+            foreach ($session['data']['records'] as $record) {
+                if ($record['status'] !== 'approved') {
+                    continue;
                 }
-            });
+
+                $result['total_submitted']++;
+
+                try {
+                    $reportData = $this->normalizeToReport($record['parsed_data']);
+                    $reportData['created_by_import'] = 1;
+                    $reportData['import_session_id'] = $session['session_id'];
+
+                    $reportId = $this->createReport($reportData, $adminId);
+                    if ($reportId) {
+                        $result['successful']++;
+                        $result['created_report_ids'][] = $reportId;
+                    }
+                } catch (Exception $e) {
+                    $result['failed']++;
+                    $result['errors'][] = [
+                        'line' => $record['line_no'],
+                        'error' => $e->getMessage()
+                    ];
+                }
+            }
 
         } catch (Exception $e) {
             return [
@@ -424,7 +379,6 @@ class ImportService
             ];
         }
 
-        // Clean up session file
         $sessionFile = $this->tempPath . '/' . $sessionId . '.json';
         if (file_exists($sessionFile)) {
             unlink($sessionFile);
@@ -434,7 +388,7 @@ class ImportService
     }
 
     /**
-     * Normalize CSV data ke report format
+     * Normalize ke report format
      */
     private function normalizeToReport(array $data): array
     {
@@ -455,7 +409,7 @@ class ImportService
     }
 
     /**
-     * Create report di database
+     * Create report
      */
     private function createReport(array $data, int $adminId): ?int
     {
@@ -467,7 +421,7 @@ class ImportService
     }
 
     /**
-     * Cleanup old import sessions
+     * Cleanup expired sessions
      */
     public function cleanupExpiredSessions(): int
     {

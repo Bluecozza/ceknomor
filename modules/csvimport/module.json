@@ -1,1 +1,15 @@
-{"name": "CSV Import", "description": "Module for importing CSV files."}
+{
+  "name": "CSV Import Module",
+  "slug": "csvimport",
+  "description": "Import data laporan dari CSV dengan preview dan management sebelum submit ke database",
+  "version": "1.0.0",
+  "author": "Bluecozza",
+  "is_core": false,
+  "auto_enable": true,
+  "config": {
+    "max_file_size": 5242880,
+    "allowed_extensions": ["csv"],
+    "max_records_per_import": 1000,
+    "temp_storage_path": "storage/imports"
+  }
+}

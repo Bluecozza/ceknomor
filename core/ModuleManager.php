@@ -42,7 +42,7 @@ class ModuleManager
     /**
      * Set HookManager instance
      */
-    public function setHookManager(HookManager $hookManager): void
+    public function setHookManager($hookManager): void
     {
         $this->hookManager = $hookManager;
     }
@@ -124,7 +124,7 @@ class ModuleManager
             if (is_array($d)) $config = $d;
         }
 
-        // FIX: Pass both config and HookManager to boot method
+        // FIXED: Pass HookManager to boot method
         if (method_exists($instance, 'boot')) {
             $instance->boot($config, $this->hookManager);
         }

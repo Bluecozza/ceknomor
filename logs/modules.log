@@ -148,3 +148,10 @@
 [2026-03-22 20:38:44] Boot file not found: api_public
 [2026-03-22 20:41:15] Boot file not found: api_public
 [2026-03-24 14:23:27] Boot failed for csvimport: Too few arguments to function CsvimportModule::boot(), 1 passed in E:\web\cek.resource.my.id\core\ModuleManager.php on line 115 and exactly 2 expected
+[2026-03-24 14:42:29] Boot failed for csvimport: Class "ImportService" not found
+[2026-03-24 14:42:30] Boot failed for csvimport: Class "ImportService" not found
+[2026-03-24 14:42:36] Boot failed for csvimport: Class "ImportService" not found
+[2026-03-24 14:42:40] Boot failed for csvimport: Class "ImportService" not found
+[2026-03-24 14:42:45] Boot failed for csvimport: Class "ImportService" not found
+[2026-03-24 14:45:09] Boot failed for csvimport: Class "ImportService" not found
+[2026-03-24 14:45:14] Boot failed for csvimport: Class "ImportService" not found

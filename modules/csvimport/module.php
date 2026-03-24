@@ -4,6 +4,9 @@
  * CSV Import Module — manage CSV upload, validation, preview, dan batch import
  */
 
+// FIX: Require ImportService sebelum digunakan
+require_once __DIR__ . '/ImportService.php';
+
 class CsvimportModule
 {
     private $config = [];
@@ -19,7 +22,7 @@ class CsvimportModule
         $this->config = $config;
         $this->hookManager = $hookManager;
         
-        // Initialize import service
+        // Initialize import service dengan config dari database
         $this->importService = new ImportService($config);
 
         // Subscribe ke hooks jika HookManager ada

@@ -2,7 +2,6 @@
 /**
  * ./bootstrap.php
  * Application bootstrap — load config, core classes, boot modules
- * REFACTORED: Lebih clean dengan separation of concerns
  */
 
 defined('ROOT_PATH') || define('ROOT_PATH', __DIR__);
@@ -32,19 +31,18 @@ $hookManager = new HookManager();
 $db = Database::getInstance();
 $moduleManager = ModuleManager::getInstance();
 
-// FIX: Set HookManager ke ModuleManager
+// Set HookManager ke ModuleManager
 $moduleManager->setHookManager($hookManager);
 
 // 7. Discovery dan boot modules
 try {
-    $moduleManager->discoverModules();  // Scan /modules directory
-    $moduleManager->bootModules();      // Load yang enabled
+    $moduleManager->discoverModules();
+    $moduleManager->bootModules();
 } catch (Throwable $e) {
     error_log('Module system error: ' . $e->getMessage());
-    // Continue — modules are optional, API masih bisa jalan
 }
 
-// 8. Make module system available globally (untuk convenience)
+// 8. Make module system available globally
 define('__MODULES', [
     'hooks' => $hookManager,
     'manager' => $moduleManager,
