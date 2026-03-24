@@ -586,7 +586,23 @@ elseif (preg_match('#^/admin#', $path)) {
         $logs  = $db->fetchAll("SELECT al.*,a.name AS admin_name FROM activity_logs al LEFT JOIN admins a ON a.id=al.admin_id WHERE {$where} ORDER BY al.created_at DESC LIMIT {$pp} OFFSET {$offset}", $params);
         Response::paginated($logs, $total, $page, $pp);
     }
+    // GET /admin/navigation
+    elseif ($method === 'GET' && $path === '/admin/navigation') {
+        requireAdmin();
+        $nav = __ADMIN_NAV;
+        $items = $nav->build();
+        
+        // Filter by permission
+        $admin = requireAdmin();
+        $userRole = $admin['role'];
+        
+        $filtered = array_filter($items, function($item) use ($userRole) {
+            $permissions = $item['permission'] ?? [];
+            return in_array($userRole, $permissions, true);
+        });
 
+        Response::success(['navigation' => array_values($filtered)]);
+    }
     else {
         Response::notFound('Endpoint admin tidak ditemukan: ' . $method . ' ' . $path);
     }
@@ -627,23 +643,8 @@ elseif ($method === 'PUT' && preg_match('#^/modules/([a-z0-9_-]+)/config$#', $pa
         Response::error('Gagal update config', 422);
     }
 }
-// ── GET /admin/navigation ────────────────────────────────────
-elseif ($method === 'GET' && $path === '/admin/navigation') {
-    requireAdmin();
-    $nav = __ADMIN_NAV;
-    $items = $nav->build();
-    
-    // Filter by permission
-    $admin = requireAdmin();
-    $userRole = $admin['role'];
-    
-    $filtered = array_filter($items, function($item) use ($userRole) {
-        $permissions = $item['permission'] ?? [];
-        return in_array($userRole, $permissions, true);
-    });
 
-    Response::success(['navigation' => array_values($filtered)]);
-}
+
 // ── 404 ───────────────────────────────────────────────────────
 else {
     Response::notFound('Endpoint tidak ditemukan: ' . $method . ' /api/v1' . $path);
