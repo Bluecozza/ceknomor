@@ -1,0 +1,150 @@
+{
+    "session_id": "imp_69c26a655f2877.22993032",
+    "created_at": "2026-03-24 17:41:41",
+    "expires_at": "2026-03-25 17:41:41",
+    "data": {
+        "success": true,
+        "total_records": 4,
+        "total_errors": 0,
+        "records": [
+            {
+                "line_no": 2,
+                "status": "pending",
+                "raw_data": [
+                    "Awas Penipu ! Penjual genteng 6281390920032 081390920032",
+                    "6281390920032, 081390920032",
+                    "",
+                    "Penjual genteng",
+                    "",
+                    "DP \/ Uang muka",
+                    "",
+                    "Modus jualan genteng dengan harga murah dan diminta DP minimal 300 ribu, dijanjikan besuk siang barang sampai.. setelah hari h nya hp dblokir tidak ada kabar",
+                    "http:\/\/urgent.id\/awas-cek-penipu\/2026-03-08+07:09:08+233695",
+                    "https:\/\/urgent.id\/img\/poster-awascekpenipu.png"
+                ],
+                "parsed_data": {
+                    "title": "Awas Penipu ! Penjual genteng 6281390920032 081390920032",
+                    "phones": [
+                        "6281390920032"
+                    ],
+                    "bank_account": "",
+                    "suspect_name": "Penjual genteng",
+                    "links": [],
+                    "modus": [
+                        "DP \/ Uang muka"
+                    ],
+                    "keywords": [],
+                    "description": "Modus jualan genteng dengan harga murah dan diminta DP minimal 300 ribu, dijanjikan besuk siang barang sampai.. setelah hari h nya hp dblokir tidak ada kabar",
+                    "source_url": "http:\/\/urgent.id\/awas-cek-penipu\/2026-03-08+07:09:08+233695",
+                    "image_url": "https:\/\/urgent.id\/img\/poster-awascekpenipu.png"
+                }
+            },
+            {
+                "line_no": 3,
+                "status": "pending",
+                "raw_data": [
+                    "Awas Penipu ! Imanuella Ericka Octa 62895330662060 0895330662060",
+                    "62895330662060, 0895330662060",
+                    "",
+                    "samaran atau bukan. Tinder, Imanuella Ericka Octa",
+                    "",
+                    "WhatsApp",
+                    "wa, whatsapp",
+                    "Kenalan dari dating app entah nama samaran atau bukan. Tinder = Ericka Octa, IG = imurocha. dinner 7 Ags 2024 di Semarang. mengaku tinggal di rumah keluarga ternyata hanya kos di Semarang. pinjam uang 700rb tunai 8 Ags 2024. sudah ditagih baik baik malah whatsapp di-block. hingga saat ini belum dikembalikan. mengaku sebagai keponakan Pak Misro, Gg. Aglik Selatan RT 2 RW 6, Selayan, Semawung Daleman, Kec. Kutoarjo, Kabupaten Purworejo, Jawa Tengah 54212. Estimasi saat ini bekerja di Yogyakarta. Tolong yang tahu dia tinggal atau kerja di mana bisa infokan, terima kasih",
+                    "http:\/\/urgent.id\/awas-cek-penipu\/2026-02-24+08:30:12+231490",
+                    "https:\/\/urgent.id\/gambar-awas\/2026-02-24+08:30:12+231490\/awas.jpeg"
+                ],
+                "parsed_data": {
+                    "title": "Awas Penipu ! Imanuella Ericka Octa 62895330662060 0895330662060",
+                    "phones": [
+                        "62895330662060"
+                    ],
+                    "bank_account": "",
+                    "suspect_name": "samaran atau bukan. Tinder, Imanuella Ericka Octa",
+                    "links": [],
+                    "modus": [
+                        "WhatsApp"
+                    ],
+                    "keywords": [
+                        "wa",
+                        "whatsapp"
+                    ],
+                    "description": "Kenalan dari dating app entah nama samaran atau bukan. Tinder = Ericka Octa, IG = imurocha. dinner 7 Ags 2024 di Semarang. mengaku tinggal di rumah keluarga ternyata hanya kos di Semarang. pinjam uang 700rb tunai 8 Ags 2024. sudah ditagih baik baik malah whatsapp di-block. hingga saat ini belum dikembalikan. mengaku sebagai keponakan Pak Misro, Gg. Aglik Selatan RT 2 RW 6, Selayan, Semawung Daleman, Kec. Kutoarjo, Kabupaten Purworejo, Jawa Tengah 54212. Estimasi saat ini bekerja di Yogyakarta. Tolong yang tahu dia tinggal atau kerja di mana bisa infokan, terima kasih",
+                    "source_url": "http:\/\/urgent.id\/awas-cek-penipu\/2026-02-24+08:30:12+231490",
+                    "image_url": "https:\/\/urgent.id\/gambar-awas\/2026-02-24+08:30:12+231490\/awas.jpeg"
+                }
+            },
+            {
+                "line_no": 4,
+                "status": "pending",
+                "raw_data": [
+                    "Awas Penipu ! Sodiq pratama 62882016637306 0882016637306",
+                    "62882016637306, 0882016637306",
+                    "",
+                    "Sodiq pratama",
+                    "",
+                    "",
+                    "",
+                    "Menjual sangkar burung",
+                    "http:\/\/urgent.id\/awas-cek-penipu\/2026-02-11+14:42:59+228922",
+                    "https:\/\/urgent.id\/gambar-awas\/2026-02-11+14:42:59+228922\/awas.jpeg"
+                ],
+                "parsed_data": {
+                    "title": "Awas Penipu ! Sodiq pratama 62882016637306 0882016637306",
+                    "phones": [
+                        "62882016637306"
+                    ],
+                    "bank_account": "",
+                    "suspect_name": "Sodiq pratama",
+                    "links": [],
+                    "modus": [],
+                    "keywords": [],
+                    "description": "Menjual sangkar burung",
+                    "source_url": "http:\/\/urgent.id\/awas-cek-penipu\/2026-02-11+14:42:59+228922",
+                    "image_url": "https:\/\/urgent.id\/gambar-awas\/2026-02-11+14:42:59+228922\/awas.jpeg"
+                }
+            },
+            {
+                "line_no": 5,
+                "status": "pending",
+                "raw_data": [
+                    "Awas Penipu ! erik\/lutfi\/di dana vergia Trianda andriana kusuma di fb hary pratama 6285718599320 085718599320,62895405225753 0895405225753,6281299503566 081299503566",
+                    "6285718599320, 085718599320, 62895405225753, 0895405225753, 6281299503566, 081299503566",
+                    "",
+                    "erik\/lutfi\/di dana vergia Trianda andriana kusuma di fb hary pratama",
+                    "",
+                    "Transfer \/ DP, DP \/ Uang muka",
+                    "penipu, transfer, wa",
+                    "meminta di transfer terlebih dahulu atau dp dulu di transfer di muka dan ternyata barang tidak dikirim dan nomer wa tidak aktiv atau wa kita di blokir oleh si penipu ini mengaku dari bandung medan jakarta dan tangerang .",
+                    "http:\/\/urgent.id\/awas-cek-penipu\/2025-12-20+23:06:44+217139",
+                    "https:\/\/urgent.id\/gambar-awas\/2025-12-20+23:06:44+217139\/awas.jpeg"
+                ],
+                "parsed_data": {
+                    "title": "Awas Penipu ! erik\/lutfi\/di dana vergia Trianda andriana kusuma di fb hary pratama 6285718599320 085718599320,62895405225753 0895405225753,6281299503566 081299503566",
+                    "phones": {
+                        "0": "6285718599320",
+                        "2": "62895405225753",
+                        "3": "6281299503566"
+                    },
+                    "bank_account": "",
+                    "suspect_name": "erik\/lutfi\/di dana vergia Trianda andriana kusuma di fb hary pratama",
+                    "links": [],
+                    "modus": [
+                        "Transfer \/ DP",
+                        "DP \/ Uang muka"
+                    ],
+                    "keywords": [
+                        "penipu",
+                        "transfer",
+                        "wa"
+                    ],
+                    "description": "meminta di transfer terlebih dahulu atau dp dulu di transfer di muka dan ternyata barang tidak dikirim dan nomer wa tidak aktiv atau wa kita di blokir oleh si penipu ini mengaku dari bandung medan jakarta dan tangerang .",
+                    "source_url": "http:\/\/urgent.id\/awas-cek-penipu\/2025-12-20+23:06:44+217139",
+                    "image_url": "https:\/\/urgent.id\/gambar-awas\/2025-12-20+23:06:44+217139\/awas.jpeg"
+                }
+            }
+        ],
+        "errors": [],
+        "warnings": []
+    }
+}
