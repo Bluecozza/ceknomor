@@ -40,7 +40,8 @@ function requireAdmin(array $roles = ['superadmin','admin','moderator']): array 
     if (!in_array($payload['role'], $roles, true)) Response::forbidden('Akses ditolak: role tidak mencukupi');
     return $payload;
 }
-// ── Serve Plugin Assets ──────────────────���────────────────────
+
+// ── Serve Plugin Assets ──────────────────────────────────────
 if (preg_match('#^/modules/([a-z0-9_-]+)/(admin|assets)/(.+)$#', $uri, $m)) {
     $plugin = $m[1];
     $type = $m[2];
@@ -74,7 +75,6 @@ if (preg_match('#^/modules/([a-z0-9_-]+)/(admin|assets)/(.+)$#', $uri, $m)) {
         
         // For PHP files, execute them
         if ($ext === 'php') {
-            // Make $admin available to plugin page
             $GLOBALS['admin'] = isset($admin) ? $admin : null;
             include $path;
         } else {
@@ -86,16 +86,17 @@ if (preg_match('#^/modules/([a-z0-9_-]+)/(admin|assets)/(.+)$#', $uri, $m)) {
     http_response_code(404);
     exit;
 }
+
 // ════════════════════════════════════════════════════════════
 // ROUTING
 // ════════════════════════════════════════════════════════════
 
-// ── GET /debug-jwt (HAPUS SETELAH SELESAI DEBUG) ──────────────
+// ── GET /debug-jwt ────────────────────────────────────────────
 if ($method === 'GET' && $path === '/debug-jwt') {
     $token = get_bearer_token();
     $result = [
         'jwt_secret_len'  => strlen(JWT_SECRET),
-        'jwt_secret_hash' => md5(JWT_SECRET),   // hash saja, bukan plaintext
+        'jwt_secret_hash' => md5(JWT_SECRET),
         'token_received'  => !empty($token),
         'token_len'       => strlen($token),
         'token_parts'     => $token ? count(explode('.', $token)) : 0,
@@ -119,7 +120,7 @@ if ($method === 'GET' && $path === '/debug-jwt') {
 }
 
 // ── GET /stats ────────────────────────────────────────────────
-if ($method === 'GET' && $path === '/stats') {
+elseif ($method === 'GET' && $path === '/stats') {
     $cacheFile = STORAGE_PATH . '/cache/stats.json';
     $ttl       = 300;
     if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $ttl) {
@@ -152,7 +153,7 @@ elseif ($path === '/search' && in_array($method, ['GET','POST'])) {
     Response::success($svc->search($q, $cat), 'Pencarian berhasil');
 }
 
-// ── GET /categories/report-types ─────────────────────────────
+// ── GET /categories/report-types ──────────────────────────────
 elseif ($method === 'GET' && $path === '/categories/report-types') {
     $types = $db->fetchAll("SELECT id, name, slug, description, severity FROM report_types WHERE is_active=1 ORDER BY severity DESC, sort_order ASC");
     $colors = [1=>'secondary',2=>'warning',3=>'orange',4=>'danger'];
@@ -181,7 +182,7 @@ elseif ($method === 'GET' && $path === '/categories') {
     Response::success(['categories' => $cats]);
 }
 
-// ── GET /reports/{ulid} ───────────────────────────────────────
+// ── GET /reports/{ulid} ────────────────────────────────────────
 elseif ($method === 'GET' && preg_match('#^/reports/([0-9A-Za-z]{26})$#', $path, $m)) {
     $svc    = new ReportService();
     $report = $svc->getByUlid($m[1]);
@@ -198,7 +199,7 @@ elseif ($method === 'GET' && $path === '/reports') {
     Response::paginated($result['data'], $result['total'], $page, $perPage);
 }
 
-// ── POST /reports ─────────────────────────────────────────────
+// ── POST /reports ──────────────────────────────────────────────
 elseif ($method === 'POST' && $path === '/reports') {
     if (!check_rate_limit('report_' . get_client_ip(), 5, 3600)) Response::rateLimited(3600);
     $data = get_json_body();
@@ -233,7 +234,7 @@ elseif ($method === 'POST' && $path === '/reports') {
     Response::success(['ulid'=>$result['ulid'],'status'=>$result['status']], $result['message'], 201);
 }
 
-// ── POST /auth/login ──────────────────────────────────────────
+// ── POST /auth/login ───────────────────────────────────────────
 elseif ($method === 'POST' && $path === '/auth/login') {
     $ip = get_client_ip();
     if (!check_rate_limit('login_' . $ip, 5, 300)) Response::rateLimited(300);
@@ -262,11 +263,10 @@ elseif ($method === 'POST' && $path === '/auth/login') {
         'admin'=>['id'=>$admin['id'],'name'=>$admin['name'],'email'=>$admin['email'],'role'=>$admin['role']]], 'Login berhasil');
 }
 
-// ── GET /auth/me ──────────────────────────────────────────────
+// ── GET /auth/me ───────────────────────────────────────────────
 elseif ($method === 'GET' && $path === '/auth/me') {
     $token = get_bearer_token();
     if (empty($token)) {
-        // Debug: tampilkan semua header yang diterima
         $headers = [];
         foreach ($_SERVER as $k => $v) {
             if (str_starts_with($k, 'HTTP_') || $k === 'REDIRECT_HTTP_AUTHORIZATION') {
@@ -298,7 +298,7 @@ elseif ($method === 'GET' && $path === '/auth/me') {
     Response::success($admin);
 }
 
-// ── POST /auth/logout ─────────────────────────────────────────
+// ── POST /auth/logout ──────────────────────────────────────────
 elseif ($method === 'POST' && $path === '/auth/logout') {
     $token = get_bearer_token();
     if (!empty($token)) {
@@ -308,10 +308,10 @@ elseif ($method === 'POST' && $path === '/auth/logout') {
     Response::success(null, 'Logout berhasil');
 }
 
-// ── GET /modules ──────────────────────────────────────────────
+// ── GET /modules ───────────────────────────────────────────────
 elseif ($method === 'GET' && $path === '/modules') {
     requireAdmin();
-    $manager = __PLUGINS;  // ← GANTI dengan __PLUGINS
+    $manager = __PLUGINS;
     $plugins = [];
     
     try {
@@ -336,18 +336,53 @@ elseif ($method === 'GET' && $path === '/modules') {
     Response::success(['modules' => $plugins]);
 }
 
-// ── POST /modules/{slug}/enable|disable ──────────────────────
+// ── POST /modules/{slug}/enable|disable ────────────────────────
 elseif ($method === 'POST' && preg_match('#^/modules/([a-z0-9_-]+)/(enable|disable)$#', $path, $m)) {
     requireAdmin(['superadmin','admin']);
-    $manager = __PLUGINS;  // ← GANTI dengan __PLUGINS
+    $manager = __PLUGINS;
     $ok = $m[2] === 'enable' ? $manager->activate($m[1]) : $manager->deactivate($m[1]);
     if (!$ok) Response::error('Gagal ' . $m[2] . ' plugin ' . $m[1], 422);
     Response::success(null, "Plugin {$m[1]} berhasil di-{$m[2]}");
 }
 
+// ── GET /modules/{slug} ────────────────────────────────────────
+elseif ($method === 'GET' && preg_match('#^/modules/([a-z0-9_-]+)$#', $path, $m)) {
+    requireAdmin();
+    $manager = __PLUGINS;
+    $plugin = $manager->getAllPlugins()[$m[1]] ?? null;
+    
+    if (!$plugin) {
+        Response::notFound('Plugin tidak ditemukan');
+    }
 
+    $config = $manager->getConfig($m[1]);
+    
+    Response::success([
+        'plugin' => [
+            'slug' => $m[1],
+            'name' => $plugin['name'] ?? '',
+            'version' => $plugin['version'] ?? '',
+            'description' => $plugin['description'] ?? '',
+            'is_active' => $plugin['is_active'] ?? 0,
+            'config' => $config
+        ]
+    ]);
+}
 
-// ── /admin/* ──────────────────────────────────────────────────
+// ── PUT /modules/{slug}/config ─────────────────────────────────
+elseif ($method === 'PUT' && preg_match('#^/modules/([a-z0-9_-]+)/config$#', $path, $m)) {
+    requireAdmin(['superadmin']);
+    $manager = __PLUGINS;
+    $body = get_json_body();
+    
+    if ($manager->updateConfig($m[1], $body)) {
+        Response::success(null, 'Config berhasil disimpan');
+    } else {
+        Response::error('Gagal update config', 422);
+    }
+}
+
+// ── /admin/* ───────────────────────────────────────────────────
 elseif (preg_match('#^/admin#', $path)) {
 
     // GET /admin/stats
@@ -586,6 +621,7 @@ elseif (preg_match('#^/admin#', $path)) {
         $logs  = $db->fetchAll("SELECT al.*,a.name AS admin_name FROM activity_logs al LEFT JOIN admins a ON a.id=al.admin_id WHERE {$where} ORDER BY al.created_at DESC LIMIT {$pp} OFFSET {$offset}", $params);
         Response::paginated($logs, $total, $page, $pp);
     }
+
     // GET /admin/navigation
     elseif ($method === 'GET' && $path === '/admin/navigation') {
         requireAdmin();
@@ -603,49 +639,73 @@ elseif (preg_match('#^/admin#', $path)) {
 
         Response::success(['navigation' => array_values($filtered)]);
     }
+
     else {
         Response::notFound('Endpoint admin tidak ditemukan: ' . $method . ' ' . $path);
     }
 }
-// ── GET /modules/{slug} ──────────────────────────────────────
-elseif ($method === 'GET' && preg_match('#^/modules/([a-z0-9_-]+)$#', $path, $m)) {
-    requireAdmin();
-    $manager = __PLUGINS;
-    $plugin = $manager->getAllPlugins()[$m[1]] ?? null;
-    
-    if (!$plugin) {
-        Response::notFound('Plugin tidak ditemukan');
-    }
 
-    $config = $manager->getConfig($m[1]);
+// ── LOAD PLUGIN ROUTES ─────────────────────────────────────────
+elseif (is_dir(MODULE_PATH)) {
+    $pluginRouteFound = false;
     
-    Response::success([
-        'plugin' => [
-            'slug' => $m[1],
-            'name' => $plugin['name'] ?? '',
-            'version' => $plugin['version'] ?? '',
-            'description' => $plugin['description'] ?? '',
-            'is_active' => $plugin['is_active'] ?? 0,
-            'config' => $config
-        ]
-    ]);
+    foreach (glob(MODULE_PATH . '/*/routes/api.php') as $pluginRouteFile) {
+        $pluginSlug = basename(dirname(dirname($pluginRouteFile)));
+        $routes = @include $pluginRouteFile;
+        
+        if (!is_array($routes)) continue;
+        
+        foreach ($routes as $route) {
+            $routeMethod = $route['method'] ?? 'GET';
+            $routePath = '/plugins/' . $pluginSlug . ($route['path'] ?? '');
+            $handler = $route['handler'] ?? null;
+            $isPattern = $route['pattern'] ?? false;
+            
+            if ($routeMethod !== $method) continue;
+            
+            $matches = false;
+            $regexMatches = [];
+            
+            if ($isPattern) {
+                if (preg_match('#^' . $routePath . '$#', $path, $regexMatches)) {
+                    $matches = true;
+                }
+            } else {
+                if ($path === $routePath) {
+                    $matches = true;
+                }
+            }
+            
+            if ($matches && $handler) {
+                try {
+                    list($className, $methodName) = explode('@', $handler);
+                    $handlerFile = dirname($pluginRouteFile) . '/../' . $className . '.php';
+                    
+                    if (file_exists($handlerFile)) {
+                        require_once $handlerFile;
+                        
+                        if ($isPattern) {
+                            call_user_func_array([$className, $methodName], array_slice($regexMatches, 1));
+                        } else {
+                            call_user_func([$className, $methodName]);
+                        }
+                        $pluginRouteFound = true;
+                        exit;
+                    }
+                } catch (Exception $e) {
+                    error_log("Plugin route error: " . $e->getMessage());
+                }
+            }
+        }
+    }
+    
+    // If no plugin route matched, return 404
+    if (!$pluginRouteFound) {
+        Response::notFound('Endpoint tidak ditemukan: ' . $method . ' /api/v1' . $path);
+    }
 }
 
-// ── PUT /modules/{slug}/config ───────────────────────────────
-elseif ($method === 'PUT' && preg_match('#^/modules/([a-z0-9_-]+)/config$#', $path, $m)) {
-    requireAdmin(['superadmin']);
-    $manager = __PLUGINS;
-    $body = get_json_body();
-    
-    if ($manager->updateConfig($m[1], $body)) {
-        Response::success(null, 'Config berhasil disimpan');
-    } else {
-        Response::error('Gagal update config', 422);
-    }
-}
-
-
-// ── 404 ───────────────────────────────────────────────────────
+// ── 404 ────────────────────────────────────────────────────────
 else {
     Response::notFound('Endpoint tidak ditemukan: ' . $method . ' /api/v1' . $path);
 }
