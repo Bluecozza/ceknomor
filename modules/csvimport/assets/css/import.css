@@ -1,0 +1,85 @@
+/* CSV Import Plugin Styles */
+
+.import-container {
+    max-width: 1200px;
+}
+
+.import-card {
+    border-left: 4px solid #007bff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.import-card.success {
+    border-left-color: #28a745;
+}
+
+.import-card.error {
+    border-left-color: #dc3545;
+}
+
+.import-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.import-stat {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.import-stat h6 {
+    color: #666;
+    font-size: 12px;
+    margin-bottom: 10px;
+}
+
+.import-stat h4 {
+    font-size: 32px;
+    margin: 0;
+    font-weight: bold;
+}
+
+.progress-custom {
+    height: 25px;
+    background: #e9ecef;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.progress-custom .progress-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.record-row {
+    transition: all 0.3s ease;
+}
+
+.record-row:hover {
+    background: rgba(0,0,0,0.02);
+}
+
+.record-actions {
+    display: flex;
+    gap: 5px;
+}
+
+@media (max-width: 768px) {
+    .import-stats {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .record-row th, 
+    .record-row td:nth-child(2),
+    .record-row td:nth-child(3) {
+        font-size: 12px;
+    }
+}

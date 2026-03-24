@@ -1,7 +1,7 @@
 <?php
 /**
  * modules/csvimport/ImportService.php
- * Handle CSV parsing, validation, dan data normalization
+ * Handle CSV parsing, validation, normalization
  */
 
 class ImportService
@@ -10,7 +10,6 @@ class ImportService
     private $tempPath;
     private $db;
 
-    // CSV Column mapping
     const COLUMN_MAP = [
         'Title' => 'title',
         'Phone' => 'phones',
@@ -24,22 +23,24 @@ class ImportService
         'Image' => 'image_url',
     ];
 
-	public function __construct(array $config)
-{
-    $this->config = $config;
-    // FIX: Add default temp_storage_path if not provided
-    $tempPath = $config['temp_storage_path'] ?? 'storage/imports';
-    $this->tempPath = ROOT_PATH . '/' . trim($tempPath, '/');
-    $this->db = Database::getInstance();
-    
-    if (!is_dir($this->tempPath)) {
-        mkdir($this->tempPath, 0755, true);
-    }
-}
+    public function __construct(array $config)
+    {
+        $this->config = array_merge([
+            'max_file_size' => 5242880,
+            'max_records_per_import' => 1000,
+            'temp_storage_path' => 'storage/imports'
+        ], $config);
 
+        $this->tempPath = ROOT_PATH . '/' . trim($this->config['temp_storage_path'], '/');
+        $this->db = Database::getInstance();
+
+        if (!is_dir($this->tempPath)) {
+            mkdir($this->tempPath, 0755, true);
+        }
+    }
 
     /**
-     * Parse CSV file dan return array of records
+     * Parse CSV file
      */
     public function parseCSV(string $filePath): array
     {
@@ -58,17 +59,14 @@ class ImportService
             while (($row = fgetcsv($handle, 0, ',')) !== false) {
                 $lineNo++;
 
-                // First row = header
                 if ($headers === null) {
                     $headers = array_map('trim', $row);
-                    // Build mapping dari CSV header ke internal field
                     foreach ($headers as $idx => $col) {
                         $headerMapping[$idx] = self::COLUMN_MAP[$col] ?? $col;
                     }
                     continue;
                 }
 
-                // Parse row
                 try {
                     $record = $this->parseRow($row, $headerMapping, $lineNo);
                     if (isset($record['error'])) {
@@ -79,8 +77,7 @@ class ImportService
                 } catch (Exception $e) {
                     $errors[] = [
                         'line' => $lineNo,
-                        'error' => $e->getMessage(),
-                        'raw_data' => $row
+                        'error' => $e->getMessage()
                     ];
                 }
             }
@@ -97,9 +94,6 @@ class ImportService
         ];
     }
 
-    /**
-     * Parse single row dari CSV
-     */
     private function parseRow(array $row, array $headerMapping, int $lineNo): array
     {
         $record = [
@@ -130,7 +124,6 @@ class ImportService
             }
         }
 
-        // Validation minimal
         if (empty($record['parsed_data']['title']) && empty($record['parsed_data']['suspect_name'])) {
             $record['error'] = 'Title atau Nama Pelaku tidak boleh kosong';
             $record['status'] = 'error';
@@ -139,38 +132,25 @@ class ImportService
         return $record;
     }
 
-    /**
-     * Parse phone numbers — bisa multiple, separated by comma
-     */
     private function parsePhones(string $phonesStr): array
     {
-        if (empty($phonesStr)) {
-            return [];
-        }
+        if (empty($phonesStr)) return [];
 
         $phones = array_map('trim', explode(',', $phonesStr));
-        $phones = array_filter($phones);
-        
         $normalized = [];
+        
         foreach ($phones as $phone) {
             $norm = $this->normalizePhone($phone);
-            if ($norm) {
-                $normalized[] = $norm;
-            }
+            if ($norm) $normalized[] = $norm;
         }
 
-        return array_filter($normalized);
+        return array_unique($normalized);
     }
 
-    /**
-     * Normalize nomor telepon Indonesia
-     */
     private function normalizePhone(string $phone): ?string
     {
         $phone = preg_replace('/\D/', '', $phone);
-        if (empty($phone)) return null;
-
-        if (strlen($phone) < 10 || strlen($phone) > 13) {
+        if (empty($phone) || strlen($phone) < 10 || strlen($phone) > 13) {
             return null;
         }
 
@@ -185,73 +165,48 @@ class ImportService
         return $phone;
     }
 
-    /**
-     * Parse links — bisa multiple, separated by comma
-     */
     private function parseLinks(string $linksStr): array
     {
-        if (empty($linksStr)) {
-            return [];
-        }
+        if (empty($linksStr)) return [];
 
         $links = array_map('trim', explode(',', $linksStr));
-        $links = array_filter($links, function($link) {
-            return !empty($link) && filter_var($link, FILTER_VALIDATE_URL);
-        });
-
-        return array_values($links);
+        return array_values(array_filter($links, fn($l) => filter_var($l, FILTER_VALIDATE_URL)));
     }
 
-    /**
-     * Parse keywords — split by comma
-     */
     private function parseKeywords(string $keywordsStr): array
     {
-        if (empty($keywordsStr)) {
-            return [];
-        }
+        if (empty($keywordsStr)) return [];
 
         $keywords = array_map('trim', explode(',', $keywordsStr));
-        $keywords = array_filter($keywords);
-        return array_values($keywords);
+        return array_values(array_filter($keywords));
     }
 
-    /**
-     * Parse modus — split by comma
-     */
     private function parseModus(string $modusStr): array
     {
-        if (empty($modusStr)) {
-            return [];
-        }
+        if (empty($modusStr)) return [];
 
         $modi = array_map('trim', explode(',', $modusStr));
-        $modi = array_filter($modi);
-        return array_values($modi);
+        return array_values(array_filter($modi));
     }
 
-    /**
-     * Validate semua records
-     */
     private function validateRecords(array $records): array
     {
         $warnings = [];
         $seenPhones = [];
 
-        foreach ($records as $idx => $record) {
+        foreach ($records as $record) {
             foreach ($record['parsed_data']['phones'] ?? [] as $phone) {
                 if (isset($seenPhones[$phone])) {
                     $warnings[] = [
                         'line' => $record['line_no'],
-                        'warning' => "Nomor {$phone} sudah ada di baris {$seenPhones[$phone]}"
+                        'warning' => "Duplikasi nomor {$phone} dari baris {$seenPhones[$phone]}"
                     ];
                 } else {
                     $seenPhones[$phone] = $record['line_no'];
                 }
             }
 
-            if (empty($record['parsed_data']['description']) && 
-                empty($record['parsed_data']['modus'])) {
+            if (empty($record['parsed_data']['description']) && empty($record['parsed_data']['modus'])) {
                 $warnings[] = [
                     'line' => $record['line_no'],
                     'warning' => "Deskripsi atau Modus sebaiknya tidak kosong"
@@ -262,9 +217,6 @@ class ImportService
         return $warnings;
     }
 
-    /**
-     * Save import session
-     */
     public function saveImportSession(array $parseResult): string
     {
         $sessionId = uniqid('imp_', true);
@@ -280,15 +232,10 @@ class ImportService
         return $sessionId;
     }
 
-    /**
-     * Get import session
-     */
     public function getImportSession(string $sessionId): ?array
     {
         $sessionFile = $this->tempPath . '/' . $sessionId . '.json';
-        if (!file_exists($sessionFile)) {
-            return null;
-        }
+        if (!file_exists($sessionFile)) return null;
 
         $data = json_decode(file_get_contents($sessionFile), true);
         
@@ -300,35 +247,23 @@ class ImportService
         return $data;
     }
 
-    /**
-     * Update record status
-     */
     public function updateRecordStatus(string $sessionId, int $lineNo, string $status, ?string $note = null): bool
     {
         $session = $this->getImportSession($sessionId);
-        if (!$session) {
-            return false;
-        }
+        if (!$session) return false;
 
         foreach ($session['data']['records'] as &$record) {
             if ($record['line_no'] === $lineNo) {
                 $record['status'] = $status;
-                if ($note) {
-                    $record['note'] = $note;
-                }
+                if ($note) $record['note'] = $note;
                 break;
             }
         }
 
-        $sessionFile = $this->tempPath . '/' . $sessionId . '.json';
-        file_put_contents($sessionFile, json_encode($session, JSON_PRETTY_PRINT));
-
+        file_put_contents($this->tempPath . '/' . $sessionId . '.json', json_encode($session, JSON_PRETTY_PRINT));
         return true;
     }
 
-    /**
-     * Submit import
-     */
     public function submitImport(string $sessionId, int $adminId): array
     {
         $session = $this->getImportSession($sessionId);
@@ -345,51 +280,40 @@ class ImportService
             'created_report_ids' => []
         ];
 
-        try {
-            foreach ($session['data']['records'] as $record) {
-                if ($record['status'] !== 'approved') {
-                    continue;
+        foreach ($session['data']['records'] as $record) {
+            if ($record['status'] !== 'approved') continue;
+
+            $result['total_submitted']++;
+
+            try {
+                $reportData = $this->normalizeToReport($record['parsed_data']);
+                $reportData['created_by_import'] = 1;
+                $reportData['import_session_id'] = $session['session_id'];
+
+                $reportId = $this->db->insert('reports', $reportData);
+                if ($reportId) {
+                    $result['successful']++;
+                    $result['created_report_ids'][] = $reportId;
+
+                    // Trigger hook
+                    __HOOKS->trigger('import.report_created', $reportId, $reportData);
                 }
-
-                $result['total_submitted']++;
-
-                try {
-                    $reportData = $this->normalizeToReport($record['parsed_data']);
-                    $reportData['created_by_import'] = 1;
-                    $reportData['import_session_id'] = $session['session_id'];
-
-                    $reportId = $this->createReport($reportData, $adminId);
-                    if ($reportId) {
-                        $result['successful']++;
-                        $result['created_report_ids'][] = $reportId;
-                    }
-                } catch (Exception $e) {
-                    $result['failed']++;
-                    $result['errors'][] = [
-                        'line' => $record['line_no'],
-                        'error' => $e->getMessage()
-                    ];
-                }
+            } catch (Exception $e) {
+                $result['failed']++;
+                $result['errors'][] = [
+                    'line' => $record['line_no'],
+                    'error' => $e->getMessage()
+                ];
             }
-
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
         }
 
+        // Cleanup session
         $sessionFile = $this->tempPath . '/' . $sessionId . '.json';
-        if (file_exists($sessionFile)) {
-            unlink($sessionFile);
-        }
+        if (file_exists($sessionFile)) unlink($sessionFile);
 
         return $result;
     }
 
-    /**
-     * Normalize ke report format
-     */
     private function normalizeToReport(array $data): array
     {
         return [
@@ -406,36 +330,5 @@ class ImportService
             'status' => 'pending',
             'created_at' => date('Y-m-d H:i:s'),
         ];
-    }
-
-    /**
-     * Create report
-     */
-    private function createReport(array $data, int $adminId): ?int
-    {
-        try {
-            return $this->db->insert('reports', $data);
-        } catch (Exception $e) {
-            throw new Exception("Gagal create report: " . $e->getMessage());
-        }
-    }
-
-    /**
-     * Cleanup expired sessions
-     */
-    public function cleanupExpiredSessions(): int
-    {
-        $count = 0;
-        $files = glob($this->tempPath . '/*.json');
-        
-        foreach ($files as $file) {
-            $data = json_decode(file_get_contents($file), true);
-            if ($data && strtotime($data['expires_at']) < time()) {
-                unlink($file);
-                $count++;
-            }
-        }
-
-        return $count;
     }
 }

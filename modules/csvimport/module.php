@@ -1,55 +1,106 @@
 <?php
 /**
  * modules/csvimport/Module.php
- * CSV Import Module — manage CSV upload, validation, preview, dan batch import
+ * CSV Import Plugin - Main class
+ * Auto-loads everything: routes, admin pages, hooks, assets
  */
 
-// FIX: Require ImportService sebelum digunakan
-require_once __DIR__ . '/ImportService.php';
-
-class CsvimportModule
+class CsvimportPlugin
 {
-    private $config = [];
-    private $importService = null;
-    private $hookManager = null;
+    private $slug;
+    private $manifest;
+    private $config;
+    private $importService;
 
-    /**
-     * Boot method - support both HookManager parameter
-     * (HookManager bisa null jika belum di-initialize)
-     */
-    public function boot(array $config, $hookManager = null): void
+    public function __construct(string $slug, array $manifest)
     {
-        $this->config = $config;
-        $this->hookManager = $hookManager;
-        
-        // Initialize import service dengan config dari database
-        $this->importService = new ImportService($config);
-
-        // Subscribe ke hooks jika HookManager ada
-        if ($this->hookManager) {
-            $this->hookManager->subscribe('import.started', [$this, 'onImportStarted'], 10);
-            $this->hookManager->subscribe('import.completed', [$this, 'onImportCompleted'], 10);
-            $this->hookManager->subscribe('import.failed', [$this, 'onImportFailed'], 10);
-        }
+        $this->slug = $slug;
+        $this->manifest = $manifest;
+        $this->config = $manifest;
     }
 
-    public function getImportService()
+    /**
+     * Plugin initialization
+     * Called automatically by PluginManager
+     */
+    public function init(): void
+    {
+        // Load services
+        require_once $this->manifest['path'] . '/ImportService.php';
+        $this->importService = new ImportService($this->config['config']);
+
+        // Register hooks untuk admin navigation
+        $hooks = HookManager::getInstance();
+        $hooks->subscribe('admin.navigation.build', [$this, 'addAdminMenu'], 10);
+        $hooks->subscribe('admin.assets.enqueue', [$this, 'enqueueAssets'], 10);
+    }
+
+    /**
+     * Add menu item to admin navigation
+     */
+    public function addAdminMenu($navItems): array
+    {
+        if (empty($this->manifest['admin_menu'])) {
+            return $navItems;
+        }
+
+        $menu = $this->manifest['admin_menu'];
+        
+        $navItems[] = [
+            'title' => $menu['title'] ?? 'CSV Import',
+            'icon' => $menu['icon'] ?? 'fa-puzzle-piece',
+            'url' => '/admin?plugin=csvimport&page=import-csv',
+            'plugin' => $this->slug,
+            'permission' => ['superadmin', 'admin']
+        ];
+
+        return $navItems;
+    }
+
+    /**
+     * Enqueue CSS/JS assets
+     */
+    public function enqueueAssets(): void
+    {
+        // Register CSS
+        wp_enqueue_style(
+            'csvimport-main',
+            $this->manifest['url'] . '/assets/css/import.css',
+            [],
+            $this->manifest['version']
+        );
+
+        // Register JS
+        wp_enqueue_script(
+            'csvimport-main',
+            $this->manifest['url'] . '/assets/js/import.js',
+            ['jquery'],
+            $this->manifest['version'],
+            true
+        );
+    }
+
+    /**
+     * Get import service instance
+     */
+    public function getImportService(): ImportService
     {
         return $this->importService;
     }
 
-    public function onImportStarted($importId): void
+    /**
+     * Get plugin slug
+     */
+    public function getSlug(): string
     {
-        error_log("CSV Import: Import started - {$importId}");
+        return $this->slug;
     }
 
-    public function onImportCompleted($result): void
+    /**
+     * Get plugin config
+     */
+    public function getConfig(): array
     {
-        error_log("CSV Import: Import completed - " . json_encode($result));
-    }
-
-    public function onImportFailed($error): void
-    {
-        error_log("CSV Import: Import failed - {$error}");
+        return $this->config['config'] ?? [];
     }
 }

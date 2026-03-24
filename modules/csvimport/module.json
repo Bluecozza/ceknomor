@@ -1,14 +1,17 @@
 {
-  "name": "CSV Import Module",
+  "name": "CSV Import Plugin",
   "slug": "csvimport",
-  "description": "Import data laporan dari CSV dengan preview dan management sebelum submit ke database",
+  "description": "Professional CSV import dengan preview, validation, dan batch processing",
   "version": "1.0.0",
-  "author": "Bluecozza",
-  "is_core": false,
+  "author": "Bluecozza Team",
   "auto_enable": true,
+  "admin_menu": {
+    "title": "Import CSV",
+    "icon": "fa-file-csv",
+    "position": 5
+  },
   "config": {
     "max_file_size": 5242880,
-    "allowed_extensions": ["csv"],
     "max_records_per_import": 1000,
     "temp_storage_path": "storage/imports"
   }

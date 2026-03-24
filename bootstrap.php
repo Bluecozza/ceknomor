@@ -1,7 +1,7 @@
 <?php
 /**
  * ./bootstrap.php
- * Application bootstrap — load config, core classes, boot modules
+ * Application bootstrap with TRUE plugin system
  */
 
 defined('ROOT_PATH') || define('ROOT_PATH', __DIR__);
@@ -9,46 +9,34 @@ defined('ROOT_PATH') || define('ROOT_PATH', __DIR__);
 // 1. Load Config
 require_once ROOT_PATH . '/config/config.php';
 
-// 2. Load Core (helpers first — contains polyfills)
+// 2. Load Core
 require_once CORE_PATH . '/helpers.php';
 require_once CORE_PATH . '/Database.php';
 require_once CORE_PATH . '/Response.php';
-
-// 3. Load Module System
 require_once CORE_PATH . '/HookManager.php';
-require_once CORE_PATH . '/ModuleManager.php';
+require_once CORE_PATH . '/PluginManager.php';
 
-// 4. Load Business Logic
+// 3. Load Business Logic
 require_once CORE_PATH . '/ReportService.php';
 
-// 5. Ensure directories exist
+// 4. Ensure directories exist
 foreach ([LOG_PATH, STORAGE_PATH . '/cache', STORAGE_PATH . '/sessions'] as $dir) {
     if (!is_dir($dir)) @mkdir($dir, 0755, true);
 }
 
-// 6. Initialize module system
-$hookManager = new HookManager();
+// 5. Initialize plugin system
+$hooks = HookManager::getInstance();
 $db = Database::getInstance();
-$moduleManager = ModuleManager::getInstance();
+$pluginManager = PluginManager::getInstance();
 
-// Set HookManager ke ModuleManager
-$moduleManager->setHookManager($hookManager);
+// 6. Discover dan load all active plugins
+$pluginManager->loadAll();
 
-// 7. Discovery dan boot modules
-try {
-    $moduleManager->discoverModules();
-    $moduleManager->bootModules();
-} catch (Throwable $e) {
-    error_log('Module system error: ' . $e->getMessage());
-}
+// 7. Make available globally
+define('__HOOKS', $hooks);
+define('__PLUGINS', $pluginManager);
 
-// 8. Make module system available globally
-define('__MODULES', [
-    'hooks' => $hookManager,
-    'manager' => $moduleManager,
-]);
-
-// 9. Global exception handler
+// 8. Global exception handler
 set_exception_handler(function(Throwable $e) {
     error_log('Uncaught: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
     if (headers_sent()) { exit; }
