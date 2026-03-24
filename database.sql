@@ -1,353 +1,340 @@
--- ============================================================
--- DATABASE: cek_resource
--- Project: cek.resource.my.id
--- Description: Platform pelaporan data sensitif (nomor telepon,
---              rekening, akun keuangan) untuk deteksi penipuan
--- ============================================================
-
 CREATE DATABASE IF NOT EXISTS `cek_resource` 
   CHARACTER SET utf8mb4 
   COLLATE utf8mb4_unicode_ci;
 
 USE `cek_resource`;
+-- ════════════════���══════════════════════════════════════════════════════════
+-- COMPREHENSIVE DATABASE SCHEMA
+-- cek.resource.my.id - Fraud Report Platform v2.0
+-- Updated: 2026-03-24
+-- ═══════════════════════════════════════════════════════════════════════════
 
--- ------------------------------------------------------------
--- TABLE: categories
--- Kategori jenis data yang bisa dilaporkan
--- ------------------------------------------------------------
-CREATE TABLE `categories` (
-  `id`          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `name`        VARCHAR(100) NOT NULL,           -- e.g. "Nomor Telepon"
-  `slug`        VARCHAR(100) NOT NULL UNIQUE,    -- e.g. "phone"
-  `icon`        VARCHAR(50)  DEFAULT 'bi-question-circle',
-  `description` TEXT,
-  `is_active`   TINYINT(1)   DEFAULT 1,
-  `sort_order`  INT          DEFAULT 0,
-  `created_at`  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+SET CHARACTER SET utf8mb4;
+SET COLLATION_CONNECTION = utf8mb4_unicode_ci;
 
-INSERT INTO `categories` (`name`, `slug`, `icon`, `description`, `sort_order`) VALUES
-('Nomor Telepon',    'phone',       'bi-telephone',       'Nomor HP/WA yang dilaporkan',                     1),
-('Rekening Bank',    'bank_account','bi-bank',            'Nomor rekening bank yang dilaporkan',             2),
-('Akun DANA',        'dana',        'bi-wallet2',         'Nomor/akun DANA yang dilaporkan',                 3),
-('Akun OVO',         'ovo',         'bi-wallet',          'Nomor/akun OVO yang dilaporkan',                  4),
-('Akun GoPay',       'gopay',       'bi-phone',           'Nomor/akun GoPay yang dilaporkan',                5),
-('Akun ShopeePay',   'shopeepay',   'bi-bag',             'Nomor/akun ShopeePay yang dilaporkan',            6),
-('Akun LinkAja',     'linkaja',     'bi-link-45deg',      'Nomor/akun LinkAja yang dilaporkan',              7),
-('Email',            'email',       'bi-envelope',        'Alamat email yang dilaporkan',                    8),
-('Akun Media Sosial','social',      'bi-people',          'Akun media sosial yang dilaporkan',               9),
-('Lainnya',          'other',       'bi-exclamation-circle','Jenis data lainnya',                            10);
+-- ─────────────────────────────────────────────────────────────────────────
+-- 1. CATEGORIES
+-- ─────────────────────────────────────────────────────────────────────────
 
--- ------------------------------------------------------------
--- TABLE: report_types
--- Jenis/alasan pelaporan
--- ------------------------------------------------------------
-CREATE TABLE `report_types` (
-  `id`          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `name`        VARCHAR(100) NOT NULL,
-  `slug`        VARCHAR(100) NOT NULL UNIQUE,
-  `description` TEXT,
-  `severity`    TINYINT(1) DEFAULT 3 COMMENT '1=ringan, 2=sedang, 3=berat, 4=sangat berat',
-  `is_active`   TINYINT(1) DEFAULT 1,
-  `sort_order`  INT DEFAULT 0
-) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS categories (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    icon VARCHAR(50),
+    description LONGTEXT,
+    is_active TINYINT(1) DEFAULT 1,
+    sort_order INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX(slug),
+    INDEX(is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO `report_types` (`name`, `slug`, `description`, `severity`, `sort_order`) VALUES
-('Penipuan Online',         'online_fraud',    'Pelaku melakukan penipuan via online',         4, 1),
-('Penjual Fiktif',          'fake_seller',     'Menjual barang/jasa tidak ada/palsu',          4, 2),
-('Investasi Bodong',        'fake_investment', 'Menawarkan investasi ilegal/tidak jelas',      4, 3),
-('Pinjol Ilegal',           'illegal_loan',    'Pinjaman online ilegal/berbunga tinggi',       4, 4),
-('Pemerasan/Blackmail',     'blackmail',       'Memeras atau mengancam korban',                4, 5),
-('Judi Online',             'gambling',        'Terlibat kegiatan judi online',                3, 6),
-('Spam/Iklan Berlebihan',   'spam',            'Mengirim spam atau iklan tidak diminta',       1, 7),
-('Penipuan Berkedok Hadiah','prize_scam',      'Mengaku ada hadiah palsu',                    4, 8),
-('Modus Pacaran (Love Scam)','love_scam',      'Penipuan berkedok romansa/asmara',            4, 9),
-('Lainnya',                 'other',           'Kasus lain yang tidak tercantum',              2, 10);
+-- ──────────��──────────────────────────────────────────────────────────────
+-- 2. REPORT TYPES
+-- ─────────────────────────────────────────────────────────────────────────
 
--- ------------------------------------------------------------
--- TABLE: reporters
--- Data pelapor (tidak wajib login)
--- ------------------------------------------------------------
-CREATE TABLE `reporters` (
-  `id`           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `name`         VARCHAR(150) NOT NULL,
-  `contact`      VARCHAR(200) NOT NULL COMMENT 'Email atau nomor telepon pelapor',
-  `contact_type` ENUM('email','phone','wa') DEFAULT 'email',
-  `ip_address`   VARCHAR(45),
-  `user_agent`   TEXT,
-  `is_verified`  TINYINT(1) DEFAULT 0,
-  `verify_token` VARCHAR(100),
-  `created_at`   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS report_types (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    description LONGTEXT,
+    severity INT DEFAULT 2,
+    is_active TINYINT(1) DEFAULT 1,
+    sort_order INT DEFAULT 0,
+    category_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    INDEX(slug),
+    INDEX(severity),
+    INDEX(category_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- TABLE: reports
--- Laporan utama
--- ------------------------------------------------------------
-CREATE TABLE `reports` (
-  `id`              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `ulid`            VARCHAR(26) NOT NULL UNIQUE COMMENT 'ULID untuk URL publik',
-  `category_id`     INT UNSIGNED NOT NULL,
-  `report_type_id`  INT UNSIGNED NOT NULL,
-  `reported_value`  VARCHAR(255) NOT NULL COMMENT 'Nilai data yang dilaporkan (no HP, no rek, dsb)',
-  `reported_value_normalized` VARCHAR(255) NOT NULL COMMENT 'Nilai yang sudah dinormalisasi untuk pencarian',
-  `bank_name`       VARCHAR(100) COMMENT 'Nama bank jika rekening',
-  `account_name`    VARCHAR(150) COMMENT 'Nama pemilik rekening/akun',
-  `title`           VARCHAR(255) NOT NULL COMMENT 'Judul singkat laporan',
-  `description`     TEXT NOT NULL COMMENT 'Deskripsi lengkap kejadian',
-  `evidence_urls`   JSON COMMENT 'Array URL bukti/screenshot',
-  `reporter_id`     INT UNSIGNED NOT NULL,
-  `incident_date`   DATE COMMENT 'Tanggal kejadian',
-  `amount_lost`     DECIMAL(15,2) DEFAULT NULL COMMENT 'Jumlah kerugian (opsional)',
-  `currency`        VARCHAR(5) DEFAULT 'IDR',
-  `status`          ENUM('pending','approved','rejected','flagged') DEFAULT 'pending',
-  `is_anonymous`    TINYINT(1) DEFAULT 0 COMMENT 'Sembunyikan nama pelapor',
-  `admin_note`      TEXT,
-  `moderated_by`    INT UNSIGNED DEFAULT NULL,
-  `moderated_at`    TIMESTAMP NULL,
-  `view_count`      INT UNSIGNED DEFAULT 0,
-  `helpful_count`   INT UNSIGNED DEFAULT 0,
-  `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  
-  FOREIGN KEY (`category_id`)    REFERENCES `categories`(`id`),
-  FOREIGN KEY (`report_type_id`) REFERENCES `report_types`(`id`),
-  FOREIGN KEY (`reporter_id`)    REFERENCES `reporters`(`id`),
-  
-  INDEX `idx_reported_value`  (`reported_value_normalized`),
-  INDEX `idx_status`          (`status`),
-  INDEX `idx_category`        (`category_id`),
-  INDEX `idx_created_at`      (`created_at`)
-) ENGINE=InnoDB;
+-- ─────────────────────────────────────────────────────────────────────────
+-- 3. REPORTERS
+-- ─────────────────────────────────────────────────────────────────────────
 
--- ------------------------------------------------------------
--- TABLE: risk_scores
--- Skor risiko agregat per data yang dilaporkan
--- Di-update setiap kali ada laporan baru (atau via cron)
--- ------------------------------------------------------------
-CREATE TABLE `risk_scores` (
-  `id`                   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `reported_value_normalized` VARCHAR(255) NOT NULL UNIQUE,
-  `category_id`          INT UNSIGNED,
-  `total_reports`        INT UNSIGNED DEFAULT 0,
-  `approved_reports`     INT UNSIGNED DEFAULT 0,
-  `risk_score`           DECIMAL(5,2) DEFAULT 0 COMMENT 'Skor 0-100',
-  `risk_level`           ENUM('unknown','safe','low','medium','high','critical') DEFAULT 'unknown',
-  `last_reported_at`     TIMESTAMP NULL,
-  `first_reported_at`    TIMESTAMP NULL,
-  `updated_at`           TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  
-  FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`),
-  INDEX `idx_risk_level` (`risk_level`),
-  INDEX `idx_risk_score` (`risk_score`)
-) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS reporters (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255),
+    contact VARCHAR(255),
+    contact_type ENUM('phone','email','other') DEFAULT 'phone',
+    ip_address VARCHAR(45),
+    user_agent LONGTEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX(contact),
+    INDEX(created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- TABLE: admins
--- Admin panel users
--- ------------------------------------------------------------
-CREATE TABLE `admins` (
-  `id`           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `name`         VARCHAR(150) NOT NULL,
-  `email`        VARCHAR(200) NOT NULL UNIQUE,
-  `password`     VARCHAR(255) NOT NULL COMMENT 'bcrypt hash',
-  `role`         ENUM('superadmin','admin','moderator') DEFAULT 'moderator',
-  `is_active`    TINYINT(1) DEFAULT 1,
-  `last_login_at` TIMESTAMP NULL,
-  `last_login_ip` VARCHAR(45),
-  `created_at`   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+-- ─────────────────────────────────────────────────────────────────────────
+-- 4. REPORTS (Main Table)
+-- ─────────────────────────────────────────────────────────────────────────
 
--- ============================================================
--- CATATAN: Akun admin default TIDAK disertakan di sini
--- karena hash bcrypt harus digenerate oleh PHP server Anda.
---
--- Setelah import, buat akun admin dengan salah satu cara:
---   1. Buka: http://localhost/cek-resource/reset-admin.php
---   2. Atau jalankan: php artisan.php admin:create
--- ============================================================
+CREATE TABLE IF NOT EXISTS reports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ulid VARCHAR(26) NOT NULL UNIQUE,
+    reporter_id INT,
+    category_id INT NOT NULL,
+    report_type_id INT,
+    title VARCHAR(255),
+    description LONGTEXT,
+    reported_value VARCHAR(255),
+    reported_value_normalized VARCHAR(255),
+    suspect_name VARCHAR(255),
+    phones JSON,
+    bank_account VARCHAR(50),
+    bank_name VARCHAR(100),
+    account_name VARCHAR(100),
+    links JSON,
+    modus JSON,
+    keywords JSON,
+    source_url VARCHAR(2048),
+    image_url VARCHAR(2048),
+    evidence_urls JSON,
+    incident_date DATE,
+    amount_lost DECIMAL(15,2),
+    status ENUM('pending','approved','rejected','flagged') DEFAULT 'pending',
+    created_by_import TINYINT(1) DEFAULT 0,
+    import_session_id VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY(reporter_id) REFERENCES reporters(id) ON DELETE SET NULL,
+    FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE RESTRICT,
+    FOREIGN KEY(report_type_id) REFERENCES report_types(id) ON DELETE SET NULL,
+    INDEX(ulid),
+    INDEX(status),
+    INDEX(category_id),
+    INDEX(reported_value_normalized),
+    INDEX(created_at),
+    INDEX(created_by_import)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- TABLE: modules
--- Modul yang bisa diaktifkan/nonaktifkan oleh admin
--- ------------------------------------------------------------
-CREATE TABLE `modules` (
-  `id`            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `name`          VARCHAR(100) NOT NULL,
-  `slug`          VARCHAR(100) NOT NULL UNIQUE,
-  `description`   TEXT,
-  `version`       VARCHAR(20) DEFAULT '1.0.0',
-  `author`        VARCHAR(100),
-  `is_enabled`    TINYINT(1) DEFAULT 1,
-  `is_core`       TINYINT(1) DEFAULT 0 COMMENT 'Modul inti tidak bisa dinonaktifkan',
-  `config`        JSON COMMENT 'Konfigurasi modul dalam JSON',
-  `installed_at`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+-- ─────────────────────────────────────────────────────────────────────────
+-- 5. RISK SCORES
+-- ─────────────────────────────────────────────────────────────────────────
 
-INSERT INTO `modules` (`name`, `slug`, `description`, `version`, `is_enabled`, `is_core`) VALUES
-('Analytics',   'analytics', 'Modul analitik pengunjung dan laporan',  '1.0.0', 1, 0),
-('Sharing',     'sharing',   'Modul berbagi laporan ke media sosial',   '1.0.0', 1, 0),
-('API Public',  'api_public','Modul REST API untuk aplikasi mobile',    '1.0.0', 1, 1),
-('Notifikasi',  'notification','Modul notifikasi email ke pelapor',     '1.0.0', 0, 0),
-('reCAPTCHA',   'recaptcha', 'Proteksi form dengan Google reCAPTCHA',   '1.0.0', 0, 0);
+CREATE TABLE IF NOT EXISTS risk_scores (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    reported_value_normalized VARCHAR(255) NOT NULL,
+    category_id INT NOT NULL,
+    total_reports INT DEFAULT 1,
+    approved_reports INT DEFAULT 0,
+    risk_score DECIMAL(5,2) DEFAULT 0,
+    risk_level ENUM('safe','low','medium','high','critical') DEFAULT 'safe',
+    last_reported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_value (reported_value_normalized, category_id),
+    INDEX(risk_level),
+    INDEX(category_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- TABLE: settings
--- Pengaturan aplikasi (key-value)
--- ------------------------------------------------------------
-CREATE TABLE `settings` (
-  `id`          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `key`         VARCHAR(100) NOT NULL UNIQUE,
-  `value`       TEXT,
-  `type`        ENUM('string','integer','boolean','json') DEFAULT 'string',
-  `group`       VARCHAR(50) DEFAULT 'general',
-  `label`       VARCHAR(150),
-  `description` TEXT,
-  `updated_at`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+-- ─────────────────────────────────────────────────────────────────────────
+-- 6. SEARCH LOGS
+-- ─────────────────────────────────────────────────────────────────────────
 
-INSERT INTO `settings` (`key`, `value`, `type`, `group`, `label`) VALUES
-('site_name',           'Cek Resource',          'string',  'general',      'Nama Website'),
-('site_tagline',        'Database Laporan Penipuan & Data Bermasalah', 'string', 'general', 'Tagline'),
-('site_email',          'info@cek.resource.my.id','string', 'general',      'Email Website'),
-('site_url',            'https://cek.resource.my.id', 'string', 'general',  'URL Website'),
-('require_moderation',  '1',                      'boolean', 'reports',     'Laporan harus dimoderasi'),
-('auto_approve',        '0',                      'boolean', 'reports',     'Auto-approve laporan'),
-('risk_threshold_low',  '20',                     'integer', 'risk',        'Skor risiko rendah'),
-('risk_threshold_medium','50',                    'integer', 'risk',        'Skor risiko sedang'),
-('risk_threshold_high', '75',                     'integer', 'risk',        'Skor risiko tinggi'),
-('recaptcha_site_key',  '',                       'string',  'security',    'reCAPTCHA Site Key'),
-('recaptcha_secret_key','',                       'string',  'security',    'reCAPTCHA Secret Key'),
-('max_reports_per_ip',  '10',                     'integer', 'security',    'Maks laporan per IP per hari'),
-('api_rate_limit',      '60',                     'integer', 'api',         'Rate limit API per menit');
+CREATE TABLE IF NOT EXISTS search_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    query VARCHAR(255) NOT NULL,
+    query_normalized VARCHAR(255),
+    category_id INT,
+    results_count INT DEFAULT 0,
+    has_result TINYINT(1) DEFAULT 0,
+    ip_address VARCHAR(45),
+    user_agent LONGTEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    INDEX(query),
+    INDEX(created_at),
+    INDEX(has_result)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- TABLE: api_keys
--- API key untuk aplikasi client (Android, iOS, dll)
--- ------------------------------------------------------------
-CREATE TABLE `api_keys` (
-  `id`           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `name`         VARCHAR(150) NOT NULL COMMENT 'Nama aplikasi/klien',
-  `key_hash`     VARCHAR(64)  NOT NULL UNIQUE COMMENT 'SHA256 hash dari API key',
-  `key_prefix`   VARCHAR(20)  NOT NULL COMMENT 'Prefix untuk identifikasi (ck_live_xxxx...)',
-  `permissions`  JSON         COMMENT '["search","read","write"]',
-  `is_active`    TINYINT(1)   DEFAULT 1,
-  `rate_limit`   INT          DEFAULT 60 COMMENT 'Request per menit',
-  `usage_count`  INT UNSIGNED DEFAULT 0,
-  `last_used_at` TIMESTAMP    NULL,
-  `expires_at`   TIMESTAMP    NULL,
-  `created_by`   INT UNSIGNED,
-  `created_at`   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+-- ─────────────────────────────────────────────────────────────────────────
+-- 7. ADMINS
+-- ─────────────────────────────────────────────────────────────────────────
 
-  FOREIGN KEY (`created_by`) REFERENCES `admins`(`id`) ON DELETE SET NULL
-) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS admins (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('superadmin','admin','moderator') DEFAULT 'moderator',
+    is_active TINYINT(1) DEFAULT 1,
+    last_login_at TIMESTAMP NULL,
+    last_login_ip VARCHAR(45),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX(email),
+    INDEX(role),
+    INDEX(is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- TABLE: api_logs
--- Log request API
--- ------------------------------------------------------------
-CREATE TABLE `api_logs` (
-  `id`           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `api_key_id`   INT UNSIGNED,
-  `endpoint`     VARCHAR(255),
-  `method`       VARCHAR(10),
-  `ip_address`   VARCHAR(45),
-  `request_body` TEXT,
-  `response_code` SMALLINT,
-  `response_time_ms` INT,
-  `created_at`   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  INDEX `idx_api_key`    (`api_key_id`),
-  INDEX `idx_created_at` (`created_at`)
-) ENGINE=InnoDB;
+-- ─────────────────────────────────────────────────────────────────────────
+-- 8. ACTIVITY LOGS
+-- ─────────────────────────────────────────────────────────────────────────
 
--- ------------------------------------------------------------
--- TABLE: activity_logs
--- Log aktivitas admin
--- ------------------------------------------------------------
-CREATE TABLE `activity_logs` (
-  `id`          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `admin_id`    INT UNSIGNED,
-  `action`      VARCHAR(100),
-  `entity_type` VARCHAR(50),
-  `entity_id`   INT UNSIGNED,
-  `description` TEXT,
-  `ip_address`  VARCHAR(45),
-  `created_at`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    admin_id INT,
+    action VARCHAR(100),
+    entity_type VARCHAR(50),
+    entity_id INT,
+    description LONGTEXT,
+    ip_address VARCHAR(45),
+    user_agent LONGTEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(admin_id) REFERENCES admins(id) ON DELETE SET NULL,
+    INDEX(admin_id),
+    INDEX(action),
+    INDEX(entity_type),
+    INDEX(created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-  INDEX `idx_admin_id`    (`admin_id`),
-  INDEX `idx_entity`      (`entity_type`, `entity_id`),
-  INDEX `idx_created_at`  (`created_at`)
-) ENGINE=InnoDB;
+-- ─────────────────────────────────────────────────────────────────────────
+-- 9. API KEYS
+-- ─────────────────────────────────────────────────────────────────────────
 
--- ------------------------------------------------------------
--- TABLE: analytics_page_views (Module: Analytics)
--- ------------------------------------------------------------
-CREATE TABLE `analytics_page_views` (
-  `id`          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `page`        VARCHAR(255),
-  `referrer`    VARCHAR(500),
-  `ip_address`  VARCHAR(45),
-  `user_agent`  TEXT,
-  `session_id`  VARCHAR(64),
-  `created_at`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  INDEX `idx_page`       (`page`),
-  INDEX `idx_created_at` (`created_at`)
-) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS api_keys (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    key_hash VARCHAR(64) NOT NULL UNIQUE,
+    key_prefix VARCHAR(20),
+    permissions JSON,
+    rate_limit INT DEFAULT 60,
+    is_active TINYINT(1) DEFAULT 1,
+    usage_count INT DEFAULT 0,
+    last_used_at TIMESTAMP NULL,
+    expires_at DATE NULL,
+    created_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY(created_by) REFERENCES admins(id) ON DELETE SET NULL,
+    INDEX(key_hash),
+    INDEX(is_active),
+    INDEX(created_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- TABLE: search_logs
--- Log pencarian untuk analytics
--- ------------------------------------------------------------
-CREATE TABLE `search_logs` (
-  `id`               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `query`            VARCHAR(255) NOT NULL,
-  `query_normalized` VARCHAR(255),
-  `category`         VARCHAR(50) DEFAULT NULL,
-  `results_count`    INT UNSIGNED DEFAULT 0,
-  `has_result`       TINYINT(1)  DEFAULT 0,
-  `ip_address`       VARCHAR(45),
-  `created_at`       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+-- ─────────────────────────────────────────────────────────────────────────
+-- 10. SETTINGS
+-- ─────────────────────────────────────────────────────────────────────────
 
-  INDEX `idx_query`         (`query`),
-  INDEX `idx_normalized`    (`query_normalized`),
-  INDEX `idx_has_result`    (`has_result`),
-  INDEX `idx_created_at`    (`created_at`)
-) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    `key` VARCHAR(255) NOT NULL UNIQUE,
+    value LONGTEXT,
+    type ENUM('string','integer','boolean','json') DEFAULT 'string',
+    `group` VARCHAR(50),
+    label VARCHAR(255),
+    description LONGTEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX(`key`),
+    INDEX(`group`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- TABLE: analytics_search_daily
--- Agregasi harian pencarian (digunakan modul analytics)
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `analytics_search_daily` (
-  `id`               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `date`             DATE NOT NULL,
-  `query_normalized` VARCHAR(255) NOT NULL,
-  `category`         VARCHAR(50)  NOT NULL DEFAULT 'all',
-  `search_count`     INT UNSIGNED NOT NULL DEFAULT 0,
-  `result_count`     INT UNSIGNED NOT NULL DEFAULT 0,
-  `last_searched_at` TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+-- ─────────────────────────────────────────────────────────────────────────
+-- 11. PLUGIN MANAGEMENT TABLES (for modular architecture)
+-- ─────────────────────────────────────────────────────────────────────────
 
-  UNIQUE KEY `uq_date_query_cat` (`date`, `query_normalized`, `category`),
-  INDEX `idx_date`  (`date`),
-  INDEX `idx_query` (`query_normalized`)
-) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS plugins (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    description LONGTEXT,
+    version VARCHAR(50),
+    author VARCHAR(255),
+    path VARCHAR(255),
+    config JSON,
+    is_active TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX(slug),
+    INDEX(is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- TABLE: analytics_reports_daily
--- Agregasi laporan masuk per hari per kategori
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `analytics_reports_daily` (
-  `id`           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `date`         DATE NOT NULL,
-  `category_id`  INT  UNSIGNED NOT NULL DEFAULT 0,
-  `report_count` INT  UNSIGNED NOT NULL DEFAULT 0,
+CREATE TABLE IF NOT EXISTS plugin_migrations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    plugin VARCHAR(255) NOT NULL,
+    migration VARCHAR(255) NOT NULL,
+    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_migration (plugin, migration),
+    INDEX(plugin)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-  UNIQUE KEY `uq_date_cat` (`date`, `category_id`),
-  INDEX `idx_date` (`date`)
-) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS admin_pages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    plugin_slug VARCHAR(255),
+    page_slug VARCHAR(255) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    icon VARCHAR(50),
+    order_by INT DEFAULT 0,
+    file_path VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_page (plugin_slug, page_slug),
+    INDEX(plugin_slug)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 12. IMPORT LOGS (CSV Import Plugin)
+-- ─────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS import_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_id VARCHAR(255) NOT NULL UNIQUE,
+    admin_id INT NOT NULL,
+    file_name VARCHAR(255),
+    total_records INT DEFAULT 0,
+    successful INT DEFAULT 0,
+    failed INT DEFAULT 0,
+    errors JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    FOREIGN KEY(admin_id) REFERENCES admins(id) ON DELETE CASCADE,
+    INDEX(admin_id),
+    INDEX(created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- SEED DATA
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Default categories
+INSERT IGNORE INTO categories (name, slug, icon, description, is_active, sort_order) VALUES
+('Nomor Telepon', 'phone', 'fa-phone', 'Laporan nomor telepon yang mencurigakan', 1, 1),
+('Rekening Bank', 'bank_account', 'fa-university', 'Laporan rekening bank yang diduga fraud', 1, 2),
+('DANA', 'dana', 'fa-wallet', 'Laporan akun DANA yang mencurigakan', 1, 3),
+('OVO', 'ovo', 'fa-credit-card', 'Laporan akun OVO yang mencurigakan', 1, 4),
+('GoPay', 'gopay', 'fa-mobile', 'Laporan akun GoPay yang mencurigakan', 1, 5),
+('LinkAja', 'linkaja', 'fa-link', 'Laporan akun LinkAja yang mencurigakan', 1, 6),
+('ShopeePay', 'shopeepay', 'fa-shopping-bag', 'Laporan akun ShopeePay yang mencurigakan', 1, 7),
+('Email', 'email', 'fa-envelope', 'Laporan email yang mencurigakan', 1, 8),
+('Social Media', 'social', 'fa-share-alt', 'Laporan akun media sosial yang mencurigakan', 1, 9),
+('Lainnya', 'other', 'fa-question-circle', 'Laporan jenis lain', 1, 10);
+
+-- Default report types
+INSERT IGNORE INTO report_types (name, slug, description, severity, is_active, sort_order) VALUES
+('Penipuan', 'fraud', 'Penipuan online atau offline', 4, 1, 1),
+('Pencurian Identitas', 'identity_theft', 'Pencurian data identitas pribadi', 4, 1, 2),
+('Skam', 'scam', 'Skam atau modus penipuan', 3, 1, 3),
+('Money Mule', 'money_mule', 'Aktivitas money mule atau pencucian uang', 4, 1, 4),
+('Pinjol Ilegal', 'illegal_lending', 'Pinjaman online ilegal', 3, 1, 5),
+('Lainnya', 'other', 'Jenis laporan lain', 2, 1, 6);
+
+-- Default settings
+INSERT IGNORE INTO settings (`key`, value, type, `group`, label, description) VALUES
+('site_name', 'Cek.Resource', 'string', 'general', 'Nama Situs', 'Nama resmi platform'),
+('site_url', 'https://cek.resource.my.id', 'string', 'general', 'URL Situs', 'URL utama platform'),
+('max_upload_size', '5242880', 'integer', 'general', 'Ukuran Upload Maksimal', 'Maksimal ukuran file (bytes)'),
+('enable_registration', '1', 'boolean', 'general', 'Aktifkan Registrasi', 'Biarkan pengguna baru mendaftar'),
+('jwt_expire', '86400', 'integer', 'security', 'JWT Expiry', 'Token JWT berlaku (detik)'),
+('rate_limit_login', '5', 'integer', 'security', 'Rate Limit Login', 'Maksimal login attempts'),
+('rate_limit_search', '30', 'integer', 'security', 'Rate Limit Search', 'Maksimal search per menit'),
+('maintenance_mode', '0', 'boolean', 'general', 'Mode Pemeliharaan', 'Tutup platform untuk maintenance');
+
+-- Default admin (superadmin)
+INSERT IGNORE INTO admins (name, email, password, role, is_active) VALUES
+('Super Admin', 'admin@cek.resource.my.id', '$2y$10$92IXUNpkm1Qx5CTJeXN9C.PSZbGBy4z.KAGbNjRKnWBmZcR9m3Zhi', 'superadmin', 1);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- END OF DATABASE SCHEMA
+-- ═══════════════════════════════════════════════════════════════════════════

@@ -501,37 +501,39 @@ async function loadPluginPage(plugin, pluginPage) {
     document.getElementById('pageTitle').textContent = pluginPage.replace(/-/g, ' ').toUpperCase();
     document.getElementById('sidebar').classList.remove('open');
     
-    // Load plugin page via iframe atau direct fetch
+    // Create plugin page container
     const container = document.getElementById('pluginPagesContainer');
-    container.innerHTML = `<div class="section-page active" id="plugin-page-${plugin}-${pluginPage}" style="display: block;"><div class="text-center py-5"><div class="spinner-border text-danger"></div></div></div>`;
+    const pageId = `plugin-${plugin}-${pluginPage}`;
+    
+    container.innerHTML = `
+        <div class="section-page active" id="${pageId}" style="display: block;">
+            <div class="text-center py-5">
+                <div class="spinner-border text-danger"></div>
+                <p class="mt-2 text-muted">Loading...</p>
+            </div>
+        </div>
+    `;
     
     try {
-        // Fetch plugin page HTML
-        const response = await fetch(`/modules/${plugin}/admin/${pluginPage}.php`, {
-            headers: {
-                'Authorization': 'Bearer ' + token
-            }
-        });
+        // Load page via iframe
+        const response = await fetch(`/admin/load-plugin-page.php?plugin=${plugin}&page=${pluginPage}&token=${token}`);
         
         if (!response.ok) {
-            throw new Error('Plugin page not found');
+            throw new Error(`HTTP ${response.status}`);
         }
         
         const html = await response.text();
-        document.getElementById(`plugin-page-${plugin}-${pluginPage}`).innerHTML = html;
-        
-        // Execute any scripts in the loaded HTML
-        const scripts = document.getElementById(`plugin-page-${plugin}-${pluginPage}`).querySelectorAll('script');
-        scripts.forEach(script => {
-            eval(script.textContent);
-        });
+        document.getElementById(pageId).innerHTML = html;
         
     } catch (e) {
-        document.getElementById(`plugin-page-${plugin}-${pluginPage}`).innerHTML = 
-            `<div class="alert alert-danger"><strong>Error:</strong> ${e.message}</div>`;
+        console.error('Load plugin page error:', e);
+        document.getElementById(pageId).innerHTML = `
+            <div class="alert alert-danger">
+                <strong>Error:</strong> ${e.message}
+            </div>
+        `;
     }
 }
-
 
 
 
