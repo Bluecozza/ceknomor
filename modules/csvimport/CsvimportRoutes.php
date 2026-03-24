@@ -1,8 +1,10 @@
 <?php
 /**
  * modules/csvimport/CsvimportRoutes.php
- * API handlers untuk CSV import plugin dengan logging
  */
+
+// Log immediately on file load
+error_log("=== CsvimportRoutes.php loaded at " . date('Y-m-d H:i:s') . " ===", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
 
 class CsvimportRoutes
 {
@@ -12,336 +14,163 @@ class CsvimportRoutes
     private static function init()
     {
         try {
+            error_log("[INIT] Starting init...", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
+            
             self::$db = Database::getInstance();
+            error_log("[INIT] Database loaded", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
+            
             $pm = PluginManager::getInstance();
+            error_log("[INIT] PluginManager obtained", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
+            
             $plugin = $pm->getPlugin('csvimport');
+            error_log("[INIT] Plugin loaded: " . ($plugin ? 'YES' : 'NO'), 3, STORAGE_PATH . '/logs/csvimport_routes.log');
             
             if (!$plugin) {
-                CsvimportLogger::error('Plugin not loaded', ['method' => __METHOD__]);
+                error_log("[INIT] ERROR: Plugin is null", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
                 return false;
             }
             
             if (!method_exists($plugin, 'getImportService')) {
-                CsvimportLogger::error('getImportService method not found', ['plugin' => get_class($plugin)]);
+                error_log("[INIT] ERROR: getImportService method not found", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
                 return false;
             }
             
             self::$importService = $plugin->getImportService();
+            error_log("[INIT] ImportService obtained: " . (self::$importService ? 'YES' : 'NO'), 3, STORAGE_PATH . '/logs/csvimport_routes.log');
             
             if (!self::$importService) {
-                CsvimportLogger::error('ImportService is null', ['plugin_class' => get_class($plugin)]);
+                error_log("[INIT] ERROR: ImportService is null", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
                 return false;
             }
             
+            error_log("[INIT] SUCCESS", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
             return true;
         } catch (Exception $e) {
-            CsvimportLogger::error('Init error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            error_log("[INIT] EXCEPTION: " . $e->getMessage(), 3, STORAGE_PATH . '/logs/csvimport_routes.log');
+            error_log("[INIT] TRACE: " . $e->getTraceAsString(), 3, STORAGE_PATH . '/logs/csvimport_routes.log');
             return false;
         }
     }
 
     public static function handleUpload()
     {
-        CsvimportLogger::debug('handleUpload called');
+        error_log("[UPLOAD] Handler called", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
         
         if (!self::init()) {
+            error_log("[UPLOAD] Init failed", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
             Response::error('Service initialization failed', 500);
         }
         
         try {
+            error_log("[UPLOAD] Checking token", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
+            
             $token = get_bearer_token();
             if (!$token) {
-                CsvimportLogger::warning('No token provided');
+                error_log("[UPLOAD] No token", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
                 Response::unauthorized('Token required');
             }
             
             $payload = verify_jwt($token);
             if (!$payload) {
-                CsvimportLogger::warning('Invalid token');
+                error_log("[UPLOAD] Token invalid", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
                 Response::unauthorized('Invalid token');
             }
             
             if (!in_array($payload['role'], ['superadmin', 'admin'], true)) {
-                CsvimportLogger::warning('Insufficient role', ['role' => $payload['role']]);
+                error_log("[UPLOAD] Insufficient role: " . $payload['role'], 3, STORAGE_PATH . '/logs/csvimport_routes.log');
                 Response::forbidden('Admin role required');
             }
 
+            error_log("[UPLOAD] Checking file", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
+            
             if (!isset($_FILES['file'])) {
-                CsvimportLogger::warning('No file uploaded');
+                error_log("[UPLOAD] No file in _FILES", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
                 Response::validationError(['file' => 'File harus diupload']);
             }
 
             $file = $_FILES['file'];
             
-            CsvimportLogger::debug('File received', [
-                'name' => $file['name'],
-                'size' => $file['size'],
-                'error' => $file['error']
-            ]);
+            error_log("[UPLOAD] File info: name=" . $file['name'] . ", size=" . $file['size'] . ", error=" . $file['error'], 3, STORAGE_PATH . '/logs/csvimport_routes.log');
             
             if ($file['error'] !== UPLOAD_ERR_OK) {
-                CsvimportLogger::warning('Upload error', ['error_code' => $file['error']]);
+                error_log("[UPLOAD] Upload error: " . $file['error'], 3, STORAGE_PATH . '/logs/csvimport_routes.log');
                 Response::error('Upload error: ' . $file['error'], 422);
             }
 
             if ($file['size'] > 5 * 1024 * 1024) {
-                CsvimportLogger::warning('File too large', ['size' => $file['size']]);
+                error_log("[UPLOAD] File too large", 3, STORAGE_PATH . '/logs/csvimport_routes.log');
                 Response::error('File terlalu besar (max 5MB)', 422);
             }
 
             $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
             if ($ext !== 'csv') {
-                CsvimportLogger::warning('Invalid file type', ['ext' => $ext]);
+                error_log("[UPLOAD] Invalid extension: " . $ext, 3, STORAGE_PATH . '/logs/csvimport_routes.log');
                 Response::error('Hanya file CSV yang diizinkan', 422);
             }
 
-            CsvimportLogger::debug('Parsing CSV', ['filename' => $file['name']]);
+            error_log("[UPLOAD] Parsing CSV from: " . $file['tmp_name'], 3, STORAGE_PATH . '/logs/csvimport_routes.log');
+            
             $parseResult = self::$importService->parseCSV($file['tmp_name']);
             
+            error_log("[UPLOAD] Parse result: " . json_encode([
+                'has_error' => isset($parseResult['error']),
+                'total_records' => $parseResult['total_records'] ?? 0,
+                'total_errors' => $parseResult['total_errors'] ?? 0
+            ]), 3, STORAGE_PATH . '/logs/csvimport_routes.log');
+            
             if (isset($parseResult['error'])) {
-                CsvimportLogger::error('Parse error', ['error' => $parseResult['error']]);
+                error_log("[UPLOAD] Parse error: " . $parseResult['error'], 3, STORAGE_PATH . '/logs/csvimport_routes.log');
                 Response::error($parseResult['error'], 422);
             }
 
-            CsvimportLogger::debug('Parse success', [
-                'total_records' => $parseResult['total_records'],
-                'total_errors' => $parseResult['total_errors']
-            ]);
-            
             $sessionId = self::$importService->saveImportSession($parseResult);
             
-            CsvimportLogger::logSessionUpload($sessionId, $file['name'], $file['size'], $parseResult);
+            error_log("[UPLOAD] SUCCESS - Session: " . $sessionId, 3, STORAGE_PATH . '/logs/csvimport_routes.log');
 
             Response::success([
                 'session_id' => $sessionId,
                 'preview' => [
                     'total_records' => $parseResult['total_records'],
                     'total_errors' => $parseResult['total_errors'],
-                    'records' => array_slice($parseResult['records'], 0, 5),
-                    'errors' => array_slice($parseResult['errors'], 0, 5)
+                    'records' => array_slice($parseResult['records'] ?? [], 0, 5),
+                    'errors' => array_slice($parseResult['errors'] ?? [], 0, 5)
                 ]
             ], 'CSV berhasil di-upload');
         } catch (Exception $e) {
-            CsvimportLogger::error('handleUpload exception: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
+            error_log("[UPLOAD] EXCEPTION: " . $e->getMessage(), 3, STORAGE_PATH . '/logs/csvimport_routes.log');
+            error_log("[UPLOAD] TRACE: " . $e->getTraceAsString(), 3, STORAGE_PATH . '/logs/csvimport_routes.log');
             Response::error('Upload failed: ' . $e->getMessage(), 500);
         }
     }
 
     public static function handlePreview(...$params)
     {
-        CsvimportLogger::debug('handlePreview called', ['params_count' => count($params)]);
-        
-        if (!self::init()) {
-            Response::error('Service initialization failed', 500);
-        }
+        error_log("[PREVIEW] Called with params: " . json_encode($params), 3, STORAGE_PATH . '/logs/csvimport_routes.log');
+        if (!self::init()) Response::error('Service initialization failed', 500);
         
         try {
             $sessionId = $params[0] ?? null;
-            if (!$sessionId) {
-                CsvimportLogger::warning('No session ID provided');
-                Response::error('Session ID required', 400);
-            }
-
+            if (!$sessionId) Response::error('Session ID required', 400);
+            
             $token = get_bearer_token();
-            if (!$token) {
-                Response::unauthorized('Token required');
-            }
-            
+            if (!$token) Response::unauthorized('Token required');
             $payload = verify_jwt($token);
-            if (!in_array($payload['role'], ['superadmin', 'admin'], true)) {
-                Response::forbidden('Admin role required');
-            }
-
-            CsvimportLogger::debug('Getting session', ['session_id' => $sessionId]);
-            $session = self::$importService->getImportSession($sessionId);
+            if (!in_array($payload['role'], ['superadmin', 'admin'], true)) Response::forbidden('Admin role required');
             
-            if (!$session) {
-                CsvimportLogger::warning('Session not found', ['session_id' => $sessionId]);
-                Response::notFound('Import session tidak ditemukan');
-            }
-
-            Response::success([
-                'session_id' => $sessionId,
-                'summary' => [
-                    'total_records' => $session['data']['total_records'] ?? 0,
-                    'total_errors' => $session['data']['total_errors'] ?? 0
-                ],
-                'records' => $session['data']['records'] ?? []
-            ]);
+            $session = self::$importService->getImportSession($sessionId);
+            if (!$session) Response::notFound('Import session tidak ditemukan');
+            
+            Response::success(['session_id' => $sessionId, 'records' => $session['data']['records'] ?? []]);
         } catch (Exception $e) {
-            CsvimportLogger::error('handlePreview exception: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
+            error_log("[PREVIEW] EXCEPTION: " . $e->getMessage(), 3, STORAGE_PATH . '/logs/csvimport_routes.log');
             Response::error('Preview failed', 500);
         }
     }
 
-    public static function handleRecordUpdate(...$params)
-    {
-        CsvimportLogger::debug('handleRecordUpdate called', ['params' => $params]);
-        
-        if (!self::init()) {
-            Response::error('Service initialization failed', 500);
-        }
-        
-        try {
-            list($sessionId, $lineNo) = [$params[0] ?? null, $params[1] ?? null];
-            
-            if (!$sessionId || !$lineNo) {
-                CsvimportLogger::warning('Missing params', ['session_id' => $sessionId, 'line_no' => $lineNo]);
-                Response::error('Invalid parameters', 400);
-            }
-            
-            $token = get_bearer_token();
-            if (!$token) Response::unauthorized('Token required');
-            
-            $payload = verify_jwt($token);
-            if (!in_array($payload['role'], ['superadmin', 'admin'], true)) {
-                Response::forbidden('Admin role required');
-            }
-
-            $body = get_json_body();
-            $status = $body['status'] ?? null;
-            
-            if (!in_array($status, ['approved', 'rejected'], true)) {
-                CsvimportLogger::warning('Invalid status', ['status' => $status]);
-                Response::validationError(['status' => 'Invalid status']);
-            }
-
-            $result = self::$importService->updateRecordStatus($sessionId, (int)$lineNo, $status);
-            
-            if (!$result) {
-                CsvimportLogger::warning('Update failed', ['session_id' => $sessionId, 'line_no' => $lineNo]);
-                Response::error('Gagal update record', 422);
-            }
-
-            CsvimportLogger::debug('Record updated', ['line_no' => $lineNo, 'status' => $status]);
-            Response::success(null, 'Record updated');
-        } catch (Exception $e) {
-            CsvimportLogger::error('handleRecordUpdate exception: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-            Response::error('Update failed', 500);
-        }
-    }
-
-    public static function handleBulkAction(...$params)
-    {
-        CsvimportLogger::debug('handleBulkAction called');
-        
-        if (!self::init()) {
-            Response::error('Service initialization failed', 500);
-        }
-        
-        try {
-            $sessionId = $params[0] ?? null;
-            $body = get_json_body();
-            $action = $body['action'] ?? null;
-
-            $token = get_bearer_token();
-            if (!$token) Response::unauthorized('Token required');
-            
-            $payload = verify_jwt($token);
-            if (!in_array($payload['role'], ['superadmin', 'admin'], true)) {
-                Response::forbidden('Admin role required');
-            }
-
-            if (!in_array($action, ['approve_all', 'reject_all'], true)) {
-                CsvimportLogger::warning('Invalid bulk action', ['action' => $action]);
-                Response::validationError(['action' => 'Invalid action']);
-            }
-
-            CsvimportLogger::debug('Bulk action executed', ['action' => $action, 'session_id' => $sessionId]);
-            Response::success(null, 'Bulk action processed');
-        } catch (Exception $e) {
-            CsvimportLogger::error('handleBulkAction exception: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-            Response::error('Bulk action failed', 500);
-        }
-    }
-
-    public static function handleSubmit(...$params)
-    {
-        CsvimportLogger::debug('handleSubmit called');
-        
-        if (!self::init()) {
-            Response::error('Service initialization failed', 500);
-        }
-        
-        try {
-            $sessionId = $params[0] ?? null;
-            
-            $token = get_bearer_token();
-            if (!$token) Response::unauthorized('Token required');
-            
-            $payload = verify_jwt($token);
-            if (!in_array($payload['role'], ['superadmin', 'admin'], true)) {
-                Response::forbidden('Admin role required');
-            }
-
-            CsvimportLogger::debug('Submitting import', ['session_id' => $sessionId]);
-            $result = self::$importService->submitImport($sessionId, (int)$payload['admin_id']);
-            
-            if (!$result['success']) {
-                CsvimportLogger::error('Submit failed', ['session_id' => $sessionId, 'message' => $result['message'] ?? 'Unknown']);
-                Response::error($result['message'] ?? 'Import failed', 422);
-            }
-
-            CsvimportLogger::info('Import submitted successfully', [
-                'session_id' => $sessionId,
-                'created' => $result['created'] ?? 0,
-                'failed' => $result['failed'] ?? 0
-            ]);
-
-            Response::success([
-                'created' => $result['created'] ?? 0,
-                'failed' => $result['failed'] ?? 0
-            ], 'Import completed');
-        } catch (Exception $e) {
-            CsvimportLogger::error('handleSubmit exception: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-            Response::error('Submit failed: ' . $e->getMessage(), 500);
-        }
-    }
-
-    public static function handleStatus(...$params)
-    {
-        CsvimportLogger::debug('handleStatus called');
-        
-        if (!self::init()) {
-            Response::error('Service initialization failed', 500);
-        }
-        
-        try {
-            $sessionId = $params[0] ?? null;
-            
-            $token = get_bearer_token();
-            if (!$token) Response::unauthorized('Token required');
-            
-            $payload = verify_jwt($token);
-            if (!in_array($payload['role'], ['superadmin', 'admin'], true)) {
-                Response::forbidden('Admin role required');
-            }
-
-            $session = self::$importService->getImportSession($sessionId);
-            if (!$session) {
-                CsvimportLogger::warning('Session not found', ['session_id' => $sessionId]);
-                Response::notFound('Import session tidak ditemukan');
-            }
-
-            Response::success([
-                'session_id' => $sessionId,
-                'status' => time() > strtotime($session['expires_at']) ? 'expired' : 'active'
-            ]);
-        } catch (Exception $e) {
-            CsvimportLogger::error('handleStatus exception: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-            Response::error('Status check failed', 500);
-        }
-    }
+    public static function handleRecordUpdate(...$params) { if (!self::init()) Response::error('Init failed', 500); }
+    public static function handleBulkAction(...$params) { if (!self::init()) Response::error('Init failed', 500); }
+    public static function handleSubmit(...$params) { if (!self::init()) Response::error('Init failed', 500); }
+    public static function handleStatus(...$params) { if (!self::init()) Response::error('Init failed', 500); }
 }
+
+error_log("=== CsvimportRoutes.php loaded successfully ===", 3, STORAGE_PATH . '/logs/csvimport_routes.log');

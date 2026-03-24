@@ -119,6 +119,100 @@ if ($method === 'GET' && $path === '/debug-jwt') {
     Response::success($result);
 }
 
+// ── GET /test-route-match (debug route matching)
+if ($path === '/test-route-match') {
+    $modulePath = MODULE_PATH;
+    $testPath = '/plugins/csvimport/upload';
+    $testMethod = 'POST';
+    
+    $matchResults = [];
+    
+    if (is_dir($modulePath)) {
+        foreach (glob($modulePath . '/*/routes/api.php') as $routeFile) {
+            $pluginSlug = basename(dirname(dirname($routeFile)));
+            $routes = @include $routeFile;
+            
+            if (!is_array($routes)) continue;
+            
+            foreach ($routes as $idx => $route) {
+                $routeMethod = $route['method'] ?? 'GET';
+                $routePath = '/plugins/' . $pluginSlug . ($route['path'] ?? '');
+                $isPattern = $route['pattern'] ?? false;
+                
+                $matches = false;
+                $regexMatches = [];
+                
+                if ($routeMethod === $testMethod) {
+                    if ($isPattern) {
+                        $pattern = '#^' . $routePath . '$#';
+                        if (preg_match($pattern, $testPath, $regexMatches)) {
+                            $matches = true;
+                        }
+                        $matchResults[] = [
+                            'route_idx' => $idx,
+                            'route_method' => $routeMethod,
+                            'route_path' => $routePath,
+                            'is_pattern' => true,
+                            'pattern' => $pattern,
+                            'test_path' => $testPath,
+                            'matches' => $matches,
+                            'regex_matches' => $regexMatches
+                        ];
+                    } else {
+                        if ($testPath === $routePath) {
+                            $matches = true;
+                        }
+                        $matchResults[] = [
+                            'route_idx' => $idx,
+                            'route_method' => $routeMethod,
+                            'route_path' => $routePath,
+                            'is_pattern' => false,
+                            'test_path' => $testPath,
+                            'matches' => $matches
+                        ];
+                    }
+                }
+            }
+        }
+    }
+    
+    Response::success([
+        'test_path' => $testPath,
+        'test_method' => $testMethod,
+        'routes_checked' => count($matchResults),
+        'matches_found' => array_filter($matchResults, fn($m) => $m['matches']),
+        'all_routes' => $matchResults
+    ]);
+}
+// ── GET /admin/debug-routes (TANPA AUTH - untuk debugging)
+if ($method === 'GET' && $path === '/admin/debug-routes') {
+    $modulePath = MODULE_PATH;
+    $pluginRoutes = [];
+    
+    if (is_dir($modulePath)) {
+        foreach (glob($modulePath . '/*/routes/api.php') as $routeFile) {
+            $pluginSlug = basename(dirname(dirname($routeFile)));
+            $routes = @include $routeFile;
+            
+            $pluginRoutes[$pluginSlug] = [
+                'file_exists' => file_exists($routeFile),
+                'file_path' => $routeFile,
+                'routes_count' => is_array($routes) ? count($routes) : 0,
+                'first_route' => is_array($routes) && count($routes) > 0 ? $routes[0] : null
+            ];
+        }
+    }
+    
+    $plugins = __PLUGINS->getLoadedPlugins();
+    
+    Response::success([
+        'module_path' => $modulePath,
+        'module_path_exists' => is_dir($modulePath),
+        'loaded_plugins' => array_keys($plugins),
+        'csvimport_in_loaded' => isset($plugins['csvimport']),
+        'plugin_routes' => $pluginRoutes,
+    ]);
+}
 // ── GET /stats ────────────────────────────────────────────────
 elseif ($method === 'GET' && $path === '/stats') {
     $cacheFile = STORAGE_PATH . '/cache/stats.json';
@@ -646,8 +740,10 @@ elseif (preg_match('#^/admin#', $path)) {
 }
 
 // ── LOAD PLUGIN ROUTES ─────────────────────────────────────────
+// ── LOAD PLUGIN ROUTES ─────────────────────────────────────────
 elseif (is_dir(MODULE_PATH)) {
     $pluginRouteFound = false;
+    $debugInfo = [];
     
     foreach (glob(MODULE_PATH . '/*/routes/api.php') as $pluginRouteFile) {
         $pluginSlug = basename(dirname(dirname($pluginRouteFile)));
@@ -661,10 +757,11 @@ elseif (is_dir(MODULE_PATH)) {
             $handler = $route['handler'] ?? null;
             $isPattern = $route['pattern'] ?? false;
             
-            if ($routeMethod !== $method) continue;
-            
+            // Check if request matches
             $matches = false;
             $regexMatches = [];
+            
+            if ($routeMethod !== $method) continue;
             
             if ($isPattern) {
                 if (preg_match('#^' . $routePath . '$#', $path, $regexMatches)) {
@@ -677,23 +774,43 @@ elseif (is_dir(MODULE_PATH)) {
             }
             
             if ($matches && $handler) {
+                error_log("=== PLUGIN ROUTE MATCH ===", 3, STORAGE_PATH . '/logs/plugin_route_match.log');
+                error_log("Path: {$path}", 3, STORAGE_PATH . '/logs/plugin_route_match.log');
+                error_log("Handler: {$handler}", 3, STORAGE_PATH . '/logs/plugin_route_match.log');
+                
                 try {
                     list($className, $methodName) = explode('@', $handler);
                     $handlerFile = dirname($pluginRouteFile) . '/../' . $className . '.php';
                     
+                    error_log("Handler file: {$handlerFile}", 3, STORAGE_PATH . '/logs/plugin_route_match.log');
+                    error_log("Handler file exists: " . (file_exists($handlerFile) ? 'YES' : 'NO'), 3, STORAGE_PATH . '/logs/plugin_route_match.log');
+                    
                     if (file_exists($handlerFile)) {
+                        error_log("Including handler file...", 3, STORAGE_PATH . '/logs/plugin_route_match.log');
                         require_once $handlerFile;
                         
-                        if ($isPattern) {
-                            call_user_func_array([$className, $methodName], array_slice($regexMatches, 1));
+                        error_log("Class exists: " . (class_exists($className) ? 'YES' : 'NO'), 3, STORAGE_PATH . '/logs/plugin_route_match.log');
+                        error_log("Method exists: " . (method_exists($className, $methodName) ? 'YES' : 'NO'), 3, STORAGE_PATH . '/logs/plugin_route_match.log');
+                        
+                        if (class_exists($className) && method_exists($className, $methodName)) {
+                            error_log("Calling handler: {$className}::{$methodName}", 3, STORAGE_PATH . '/logs/plugin_route_match.log');
+                            
+                            if ($isPattern) {
+                                call_user_func_array([$className, $methodName], array_slice($regexMatches, 1));
+                            } else {
+                                call_user_func([$className, $methodName]);
+                            }
+                            $pluginRouteFound = true;
+                            exit;
                         } else {
-                            call_user_func([$className, $methodName]);
+                            error_log("ERROR: Class or method not found!", 3, STORAGE_PATH . '/logs/plugin_route_match.log');
                         }
-                        $pluginRouteFound = true;
-                        exit;
+                    } else {
+                        error_log("ERROR: Handler file not found!", 3, STORAGE_PATH . '/logs/plugin_route_match.log');
                     }
                 } catch (Exception $e) {
-                    error_log("Plugin route error: " . $e->getMessage());
+                    error_log("EXCEPTION: " . $e->getMessage(), 3, STORAGE_PATH . '/logs/plugin_route_match.log');
+                    error_log("TRACE: " . $e->getTraceAsString(), 3, STORAGE_PATH . '/logs/plugin_route_match.log');
                 }
             }
         }
@@ -704,6 +821,7 @@ elseif (is_dir(MODULE_PATH)) {
         Response::notFound('Endpoint tidak ditemukan: ' . $method . ' /api/v1' . $path);
     }
 }
+
 // ── GET /admin/csvimport-logs (debug endpoint)
 elseif ($method === 'GET' && $path === '/admin/csvimport-logs') {
     requireAdmin(['superadmin']);
@@ -716,6 +834,8 @@ elseif ($method === 'GET' && $path === '/admin/csvimport-logs') {
         Response::success(['logs' => 'No logs yet']);
     }
 }
+
+
 // ── 404 ────────────────────────────────────────────────────────
 else {
     Response::notFound('Endpoint tidak ditemukan: ' . $method . ' /api/v1' . $path);
