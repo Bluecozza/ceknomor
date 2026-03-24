@@ -15,6 +15,7 @@ require_once CORE_PATH . '/Database.php';
 require_once CORE_PATH . '/Response.php';
 require_once CORE_PATH . '/HookManager.php';
 require_once CORE_PATH . '/PluginManager.php';
+require_once CORE_PATH . '/AdminNavigation.php';
 
 // 3. Load Business Logic
 require_once CORE_PATH . '/ReportService.php';
@@ -24,19 +25,28 @@ foreach ([LOG_PATH, STORAGE_PATH . '/cache', STORAGE_PATH . '/sessions'] as $dir
     if (!is_dir($dir)) @mkdir($dir, 0755, true);
 }
 
-// 5. Initialize plugin system
+// 5. Initialize systems
 $hooks = HookManager::getInstance();
 $db = Database::getInstance();
 $pluginManager = PluginManager::getInstance();
+$adminNav = AdminNavigation::getInstance();
 
-// 6. Discover dan load all active plugins
-$pluginManager->loadAll();
-
-// 7. Make available globally
+// 6. Make available globally BEFORE loading plugins
 define('__HOOKS', $hooks);
 define('__PLUGINS', $pluginManager);
+define('__ADMIN_NAV', $adminNav);
 
-// 8. Global exception handler
+// 7. Discover dan load all active plugins
+try {
+    $pluginManager->loadAll();
+} catch (Throwable $e) {
+    error_log('Plugin system error: ' . $e->getMessage());
+}
+
+// 8. Initialize admin navigation after plugins loaded
+$adminNav->initialize();
+
+// 9. Global exception handler
 set_exception_handler(function(Throwable $e) {
     error_log('Uncaught: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
     if (headers_sent()) { exit; }

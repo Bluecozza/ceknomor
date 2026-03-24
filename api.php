@@ -40,7 +40,52 @@ function requireAdmin(array $roles = ['superadmin','admin','moderator']): array 
     if (!in_array($payload['role'], $roles, true)) Response::forbidden('Akses ditolak: role tidak mencukupi');
     return $payload;
 }
-
+// ── Serve Plugin Assets ──────────────────���────────────────────
+if (preg_match('#^/modules/([a-z0-9_-]+)/(admin|assets)/(.+)$#', $uri, $m)) {
+    $plugin = $m[1];
+    $type = $m[2];
+    $file = $m[3];
+    
+    $path = MODULE_PATH . '/' . $plugin . '/' . $type . '/' . $file;
+    
+    // Prevent directory traversal
+    if (strpos(realpath($path), realpath(MODULE_PATH . '/' . $plugin)) !== 0) {
+        http_response_code(403);
+        exit;
+    }
+    
+    if (file_exists($path) && is_file($path)) {
+        // Determine MIME type
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mimes = [
+            'html' => 'text/html',
+            'php' => 'text/html',
+            'css' => 'text/css',
+            'js' => 'application/javascript',
+            'json' => 'application/json',
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'svg' => 'image/svg+xml',
+        ];
+        
+        header('Content-Type: ' . ($mimes[$ext] ?? 'application/octet-stream'));
+        
+        // For PHP files, execute them
+        if ($ext === 'php') {
+            // Make $admin available to plugin page
+            $GLOBALS['admin'] = isset($admin) ? $admin : null;
+            include $path;
+        } else {
+            readfile($path);
+        }
+        exit;
+    }
+    
+    http_response_code(404);
+    exit;
+}
 // ════════════════════════════════════════════════════════════
 // ROUTING
 // ════════════════════════════════════════════════════════════
@@ -266,36 +311,41 @@ elseif ($method === 'POST' && $path === '/auth/logout') {
 // ── GET /modules ──────────────────────────────────────────────
 elseif ($method === 'GET' && $path === '/modules') {
     requireAdmin();
-    $manager = ModuleManager::getInstance();
-    try { $manager->discoverModules(); } catch (Exception $e) {}
-    try { $modules = $manager->getAllModules(); } catch (Exception $e) { $modules = []; }
-    // Fallback: baca dari folder jika DB kosong
-    if (empty($modules) && is_dir(MODULE_PATH)) {
-        $modules = [];
-        foreach (glob(MODULE_PATH . '/*/module.json') ?: [] as $mf) {
-            $m = json_decode(file_get_contents($mf), true);
-            if ($m) $modules[] = ['id'=>0,'slug'=>$m['slug']??basename(dirname($mf)),'name'=>$m['name']??'','description'=>$m['description']??'','version'=>$m['version']??'1.0.0','is_enabled'=>0,'is_core'=>$m['is_core']??0];
+    $manager = __PLUGINS;  // ← GANTI dengan __PLUGINS
+    $plugins = [];
+    
+    try {
+        $manager->loadAll();
+        $allPlugins = $manager->getAllPlugins();
+        
+        foreach ($allPlugins as $slug => $plugin) {
+            $plugins[] = [
+                'id' => $plugin['slug'],
+                'slug' => $slug,
+                'name' => $plugin['name'] ?? '',
+                'description' => $plugin['description'] ?? '',
+                'version' => $plugin['version'] ?? '1.0.0',
+                'is_active' => $plugin['is_active'] ?? 0,
+                'author' => $plugin['author'] ?? ''
+            ];
         }
+    } catch (Exception $e) {
+        $plugins = [];
     }
-    Response::success(['modules' => $modules]);
+    
+    Response::success(['modules' => $plugins]);
 }
 
 // ── POST /modules/{slug}/enable|disable ──────────────────────
 elseif ($method === 'POST' && preg_match('#^/modules/([a-z0-9_-]+)/(enable|disable)$#', $path, $m)) {
     requireAdmin(['superadmin','admin']);
-    $manager = ModuleManager::getInstance();
-    $ok = $m[2] === 'enable' ? $manager->enable($m[1]) : $manager->disable($m[1]);
-    if (!$ok) Response::error('Gagal ' . $m[2] . ' modul ' . $m[1], 422);
-    Response::success(null, "Modul {$m[1]} berhasil di-{$m[2]}");
+    $manager = __PLUGINS;  // ← GANTI dengan __PLUGINS
+    $ok = $m[2] === 'enable' ? $manager->activate($m[1]) : $manager->deactivate($m[1]);
+    if (!$ok) Response::error('Gagal ' . $m[2] . ' plugin ' . $m[1], 422);
+    Response::success(null, "Plugin {$m[1]} berhasil di-{$m[2]}");
 }
 
-// ── PUT /modules/{slug}/config ────────────────────────────────
-elseif ($method === 'PUT' && preg_match('#^/modules/([a-z0-9_-]+)/config$#', $path, $m)) {
-    requireAdmin(['superadmin']);
-    $ok = ModuleManager::getInstance()->updateConfig($m[1], get_json_body());
-    if (!$ok) Response::error('Gagal update konfigurasi', 422);
-    Response::success(null, 'Konfigurasi disimpan');
-}
+
 
 // ── /admin/* ──────────────────────────────────────────────────
 elseif (preg_match('#^/admin#', $path)) {
@@ -541,7 +591,59 @@ elseif (preg_match('#^/admin#', $path)) {
         Response::notFound('Endpoint admin tidak ditemukan: ' . $method . ' ' . $path);
     }
 }
+// ── GET /modules/{slug} ──────────────────────────────────────
+elseif ($method === 'GET' && preg_match('#^/modules/([a-z0-9_-]+)$#', $path, $m)) {
+    requireAdmin();
+    $manager = __PLUGINS;
+    $plugin = $manager->getAllPlugins()[$m[1]] ?? null;
+    
+    if (!$plugin) {
+        Response::notFound('Plugin tidak ditemukan');
+    }
 
+    $config = $manager->getConfig($m[1]);
+    
+    Response::success([
+        'plugin' => [
+            'slug' => $m[1],
+            'name' => $plugin['name'] ?? '',
+            'version' => $plugin['version'] ?? '',
+            'description' => $plugin['description'] ?? '',
+            'is_active' => $plugin['is_active'] ?? 0,
+            'config' => $config
+        ]
+    ]);
+}
+
+// ── PUT /modules/{slug}/config ───────────────────────────────
+elseif ($method === 'PUT' && preg_match('#^/modules/([a-z0-9_-]+)/config$#', $path, $m)) {
+    requireAdmin(['superadmin']);
+    $manager = __PLUGINS;
+    $body = get_json_body();
+    
+    if ($manager->updateConfig($m[1], $body)) {
+        Response::success(null, 'Config berhasil disimpan');
+    } else {
+        Response::error('Gagal update config', 422);
+    }
+}
+// ── GET /admin/navigation ────────────────────────────────────
+elseif ($method === 'GET' && $path === '/admin/navigation') {
+    requireAdmin();
+    $nav = __ADMIN_NAV;
+    $items = $nav->build();
+    
+    // Filter by permission
+    $admin = requireAdmin();
+    $userRole = $admin['role'];
+    
+    $filtered = array_filter($items, function($item) use ($userRole) {
+        $permissions = $item['permission'] ?? [];
+        return in_array($userRole, $permissions, true);
+    });
+
+    Response::success(['navigation' => array_values($filtered)]);
+}
 // ── 404 ───────────────────────────────────────────────────────
 else {
     Response::notFound('Endpoint tidak ditemukan: ' . $method . ' /api/v1' . $path);

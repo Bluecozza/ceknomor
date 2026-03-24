@@ -1,8 +1,7 @@
 <?php
 /**
  * ./core/PluginManager.php
- * True Plugin System seperti WordPress
- * Auto-load routes, admin pages, hooks, migrations, assets
+ * True Plugin System - FIXED VERSION
  */
 
 class PluginManager
@@ -12,7 +11,6 @@ class PluginManager
     private $loadedPlugins = [];
     private $hooks;
     private $db;
-    private $router;
 
     private function __construct()
     {
@@ -29,7 +27,7 @@ class PluginManager
     }
 
     /**
-     * Discover plugins dari directory /modules
+     * Discover plugins
      */
     public function discover(): array
     {
@@ -74,9 +72,10 @@ class PluginManager
     private function registerPlugin(string $slug, array $manifest): void
     {
         try {
-            $existing = $this->db->fetchOne("SELECT id FROM plugins WHERE slug = ?", [$slug]);
+            $existing = $this->db->fetchOne("SELECT id, is_active FROM plugins WHERE slug = ?", [$slug]);
             
             if (!$existing) {
+                // Insert baru
                 $this->db->insert('plugins', [
                     'name' => $manifest['name'] ?? $slug,
                     'slug' => $slug,
@@ -87,14 +86,67 @@ class PluginManager
                     'is_active' => $manifest['auto_enable'] ?? 0,
                     'created_at' => date('Y-m-d H:i:s'),
                 ]);
+            } else {
+                // Update existing (untuk reflect perubahan di module.json)
+                $this->db->update('plugins', [
+                    'name' => $manifest['name'] ?? $slug,
+                    'description' => $manifest['description'] ?? '',
+                    'version' => $manifest['version'] ?? '1.0.0',
+                    'author' => $manifest['author'] ?? '',
+                    'path' => $manifest['path'],
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ], 'slug = ?', [$slug]);
             }
         } catch (Exception $e) {
             error_log("Plugin registration failed for {$slug}: " . $e->getMessage());
         }
     }
 
+/**
+ * Load all plugins
+ */
+public function loadAll(): void
+{
+    // First, discover all plugins
+    $discovered = $this->discover();
+    
+    // Merge dengan plugins dari database
+    try {
+        $dbPlugins = $this->db->fetchAll("SELECT * FROM plugins");
+        
+        foreach ($dbPlugins as $dbPlugin) {
+            if (!isset($discovered[$dbPlugin['slug']])) {
+                // Plugin di DB tapi tidak di folder
+                $discovered[$dbPlugin['slug']] = [
+                    'slug' => $dbPlugin['slug'],
+                    'name' => $dbPlugin['name'],
+                    'description' => $dbPlugin['description'],
+                    'version' => $dbPlugin['version'],
+                    'is_active' => $dbPlugin['is_active'],
+                    'path' => $dbPlugin['path'],
+                ];
+            } else {
+                // Update is_active dari DB
+                $discovered[$dbPlugin['slug']]['is_active'] = $dbPlugin['is_active'];
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Error loading plugins from DB: " . $e->getMessage());
+    }
+
+    // Set plugins
+    $this->plugins = $discovered;
+
+    // Load active plugins
+    foreach ($this->plugins as $slug => $plugin) {
+        if ($plugin['is_active'] ?? 0) {
+            $this->loadPlugin($slug);
+        }
+    }
+}
+
     /**
-     * Load plugin dan setup semuanya
+     * Load single plugin
      */
     public function loadPlugin(string $slug): bool
     {
@@ -127,29 +179,17 @@ class PluginManager
 
             $pluginInstance = new $className($slug, $plugin);
 
-            // 2. Call plugin init/boot
+            // 2. Call plugin init
             if (method_exists($pluginInstance, 'init')) {
                 $pluginInstance->init();
             }
 
-            // 3. Load routes
-            $this->loadPluginRoutes($slug, $plugin);
-
-            // 4. Load admin pages
-            $this->registerAdminPages($slug, $plugin);
-
-            // 5. Load hooks
-            $this->registerPluginHooks($slug, $plugin);
-
-            // 6. Load migrations
+            // 3. Load migrations
             $this->runMigrations($slug, $plugin);
-
-            // 7. Enqueue assets
-            $this->enqueueAssets($slug, $plugin);
 
             $this->loadedPlugins[$slug] = $pluginInstance;
 
-            // Trigger plugin_loaded hook
+            // Trigger hook
             $this->hooks->trigger('plugin.loaded', $slug, $pluginInstance);
 
             return true;
@@ -161,99 +201,7 @@ class PluginManager
     }
 
     /**
-     * Load all active plugins
-     */
-    public function loadAll(): void
-    {
-        // First, discover all plugins
-        $discovered = $this->discover();
-        $this->plugins = $discovered;
-
-        // Get active plugins from database
-        try {
-            $activePlugins = $this->db->fetchAll(
-                "SELECT * FROM plugins WHERE is_active = 1"
-            );
-            
-            foreach ($activePlugins as $plugin) {
-                if (isset($this->plugins[$plugin['slug']])) {
-                    $this->plugins[$plugin['slug']]['is_active'] = true;
-                    $this->loadPlugin($plugin['slug']);
-                }
-            }
-        } catch (Exception $e) {
-            error_log("Error loading plugins: " . $e->getMessage());
-        }
-    }
-
-    /**
-     * Load plugin API routes
-     */
-    private function loadPluginRoutes(string $slug, array $plugin): void
-    {
-        $routesFile = $plugin['path'] . '/routes/api.php';
-        
-        if (!file_exists($routesFile)) {
-            return;
-        }
-
-        $routes = include $routesFile;
-        if (!is_array($routes)) {
-            return;
-        }
-
-        // Register routes dengan prefix /api/v1/plugins/{slug}
-        foreach ($routes as $route) {
-            $route['path'] = '/plugins/' . $slug . $route['path'];
-            $route['plugin'] = $slug;
-            
-            $this->hooks->trigger('route.register', $route);
-        }
-    }
-
-    /**
-     * Register admin pages untuk plugin
-     */
-    private function registerAdminPages(string $slug, array $plugin): void
-    {
-        $pagesDir = $plugin['path'] . '/admin';
-        
-        if (!is_dir($pagesDir)) {
-            return;
-        }
-
-        $pages = glob($pagesDir . '/*.php');
-        
-        foreach ($pages as $pageFile) {
-            $pageName = basename($pageFile, '.php');
-            
-            $this->hooks->trigger('admin.page.register', [
-                'slug' => $slug,
-                'page' => $pageName,
-                'file' => $pageFile,
-                'title' => $this->getTitleFromFile($pageFile),
-                'icon' => 'fa-puzzle-piece' // Default icon
-            ]);
-        }
-    }
-
-    /**
-     * Register plugin hooks
-     */
-    private function registerPluginHooks(string $slug, array $plugin): void
-    {
-        $hooksFile = $plugin['path'] . '/hooks/navigation.php';
-        
-        if (!file_exists($hooksFile)) {
-            return;
-        }
-
-        // Load hooks - file ini akan call $hooks->subscribe()
-        include $hooksFile;
-    }
-
-    /**
-     * Run plugin migrations
+     * Run migrations
      */
     private function runMigrations(string $slug, array $plugin): void
     {
@@ -264,25 +212,27 @@ class PluginManager
         }
 
         $migrations = glob($migrationsDir . '/*.sql');
+        if (!$migrations) return;
+        
         sort($migrations);
 
         foreach ($migrations as $migrationFile) {
             $migrationName = basename($migrationFile, '.sql');
             
             // Check if already run
-            $exists = $this->db->fetchOne(
-                "SELECT id FROM plugin_migrations WHERE plugin = ? AND migration = ?",
-                [$slug, $migrationName]
-            );
-
-            if ($exists) {
-                continue;
-            }
-
             try {
+                $exists = $this->db->fetchOne(
+                    "SELECT id FROM plugin_migrations WHERE plugin = ? AND migration = ?",
+                    [$slug, $migrationName]
+                );
+
+                if ($exists) {
+                    continue;
+                }
+
                 $sql = file_get_contents($migrationFile);
                 
-                // Execute SQL (split by ;)
+                // Execute SQL
                 $statements = array_filter(
                     array_map('trim', explode(';', $sql)),
                     fn($s) => !empty($s)
@@ -306,50 +256,13 @@ class PluginManager
     }
 
     /**
-     * Enqueue plugin assets (CSS/JS)
-     */
-    private function enqueueAssets(string $slug, array $plugin): void
-    {
-        $assetsPath = $plugin['path'] . '/assets';
-        
-        if (!is_dir($assetsPath)) {
-            return;
-        }
-
-        // Register CSS files
-        $cssDir = $assetsPath . '/css';
-        if (is_dir($cssDir)) {
-            $cssFiles = glob($cssDir . '/*.css');
-            foreach ($cssFiles as $cssFile) {
-                $this->hooks->trigger('style.enqueue', [
-                    'handle' => $slug . '-' . basename($cssFile, '.css'),
-                    'src' => $plugin['url'] . '/assets/css/' . basename($cssFile),
-                    'plugin' => $slug
-                ]);
-            }
-        }
-
-        // Register JS files
-        $jsDir = $assetsPath . '/js';
-        if (is_dir($jsDir)) {
-            $jsFiles = glob($jsDir . '/*.js');
-            foreach ($jsFiles as $jsFile) {
-                $this->hooks->trigger('script.enqueue', [
-                    'handle' => $slug . '-' . basename($jsFile, '.js'),
-                    'src' => $plugin['url'] . '/assets/js/' . basename($jsFile),
-                    'plugin' => $slug
-                ]);
-            }
-        }
-    }
-
-    /**
      * Activate plugin
      */
     public function activate(string $slug): bool
     {
         try {
             $this->db->update('plugins', ['is_active' => 1], 'slug = ?', [$slug]);
+            $this->plugins[$slug]['is_active'] = 1;
             $this->loadPlugin($slug);
             
             $this->hooks->trigger('plugin.activated', $slug);
@@ -368,6 +281,7 @@ class PluginManager
     {
         try {
             $this->db->update('plugins', ['is_active' => 0], 'slug = ?', [$slug]);
+            $this->plugins[$slug]['is_active'] = 0;
             unset($this->loadedPlugins[$slug]);
             
             $this->hooks->trigger('plugin.deactivated', $slug);
@@ -380,7 +294,41 @@ class PluginManager
     }
 
     /**
-     * Get loaded plugin instance
+     * Update plugin config
+     */
+    public function updateConfig(string $slug, array $config): bool
+    {
+        try {
+            $this->db->update('plugins', [
+                'config' => json_encode($config),
+                'updated_at' => date('Y-m-d H:i:s')
+            ], 'slug = ?', [$slug]);
+            return true;
+        } catch (Exception $e) {
+            error_log("Config update failed for {$slug}: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Get plugin config
+     */
+    public function getConfig(string $slug): array
+    {
+        try {
+            $plugin = $this->db->fetchOne("SELECT config FROM plugins WHERE slug = ?", [$slug]);
+            if (!$plugin || empty($plugin['config'])) {
+                return [];
+            }
+            $config = json_decode($plugin['config'], true);
+            return is_array($config) ? $config : [];
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Get plugin
      */
     public function getPlugin(string $slug): ?object
     {
@@ -401,17 +349,5 @@ class PluginManager
     public function getLoadedPlugins(): array
     {
         return $this->loadedPlugins;
-    }
-
-    /**
-     * Helper: Extract title from PHP file
-     */
-    private function getTitleFromFile(string $file): string
-    {
-        $content = file_get_contents($file);
-        if (preg_match('/page_title\s*=\s*[\'"]([^\'"]+)[\'"]/', $content, $matches)) {
-            return $matches[1];
-        }
-        return ucfirst(basename($file, '.php'));
     }
 }

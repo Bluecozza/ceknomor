@@ -1,8 +1,6 @@
 <?php
 /**
  * modules/csvimport/Module.php
- * CSV Import Plugin - Main class
- * Auto-loads everything: routes, admin pages, hooks, assets
  */
 
 class CsvimportPlugin
@@ -21,7 +19,6 @@ class CsvimportPlugin
 
     /**
      * Plugin initialization
-     * Called automatically by PluginManager
      */
     public function init(): void
     {
@@ -29,76 +26,57 @@ class CsvimportPlugin
         require_once $this->manifest['path'] . '/ImportService.php';
         $this->importService = new ImportService($this->config['config']);
 
-        // Register hooks untuk admin navigation
+        // Register hooks
         $hooks = HookManager::getInstance();
-        $hooks->subscribe('admin.navigation.build', [$this, 'addAdminMenu'], 10);
-        $hooks->subscribe('admin.assets.enqueue', [$this, 'enqueueAssets'], 10);
+        $hooks->subscribe('admin.menu.build', [$this, 'onMenuBuild'], 10);
     }
 
     /**
-     * Add menu item to admin navigation
+     * Get admin menu items
      */
-    public function addAdminMenu($navItems): array
+    public function getAdminMenu(): array
     {
         if (empty($this->manifest['admin_menu'])) {
-            return $navItems;
+            return [];
         }
 
         $menu = $this->manifest['admin_menu'];
-        
-        $navItems[] = [
-            'title' => $menu['title'] ?? 'CSV Import',
-            'icon' => $menu['icon'] ?? 'fa-puzzle-piece',
-            'url' => '/admin?plugin=csvimport&page=import-csv',
-            'plugin' => $this->slug,
-            'permission' => ['superadmin', 'admin']
+
+        return [
+            [
+                'label' => $menu['title'] ?? 'CSV Import',
+                'icon' => $menu['icon'] ?? 'fa-puzzle-piece',
+                'url' => '/admin?plugin=' . $this->slug . '&page=import-csv',
+                'permission' => ['superadmin', 'admin'],
+                'position' => $menu['position'] ?? 50
+            ]
         ];
-
-        return $navItems;
     }
 
     /**
-     * Enqueue CSS/JS assets
+     * Hook callback for admin menu build
      */
-    public function enqueueAssets(): void
+    public function onMenuBuild(&$items): void
     {
-        // Register CSS
-        wp_enqueue_style(
-            'csvimport-main',
-            $this->manifest['url'] . '/assets/css/import.css',
-            [],
-            $this->manifest['version']
-        );
-
-        // Register JS
-        wp_enqueue_script(
-            'csvimport-main',
-            $this->manifest['url'] . '/assets/js/import.js',
-            ['jquery'],
-            $this->manifest['version'],
-            true
-        );
+        $menus = $this->getAdminMenu();
+        foreach ($menus as $menu) {
+            $items[] = $menu;
+        }
     }
 
     /**
-     * Get import service instance
+     * Get import service
      */
     public function getImportService(): ImportService
     {
         return $this->importService;
     }
 
-    /**
-     * Get plugin slug
-     */
     public function getSlug(): string
     {
         return $this->slug;
     }
 
-    /**
-     * Get plugin config
-     */
     public function getConfig(): array
     {
         return $this->config['config'] ?? [];

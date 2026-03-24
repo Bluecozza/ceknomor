@@ -122,10 +122,16 @@
         <a class="nav-link" onclick="showPage('reports')"><i class="bi bi-flag"></i> Laporan <span class="badge-count" id="pendingBadge" style="display:none">0</span></a>
         <a class="nav-link" onclick="showPage('risk')"><i class="bi bi-exclamation-diamond"></i> Risk Monitor</a>
         <a class="nav-link" onclick="showPage('searches')"><i class="bi bi-search"></i> Log Pencarian</a>
-        <div class="nav-section">Sistem</div>
-        <a class="nav-link" onclick="showPage('modules')"><i class="bi bi-puzzle"></i> Modul</a>
-        <a class="nav-link" onclick="showPage('settings')"><i class="bi bi-gear"></i> Pengaturan</a>
-        <div class="nav-section">Akun</div>
+<!-- Update di bagian SIDEBAR - ganti nav-section "Sistem" -->
+
+<div class="nav-section">Sistem</div>
+<a class="nav-link" onclick="showPage('modules')"><i class="bi bi-puzzle"></i> Modul</a>
+<a class="nav-link" onclick="showPage('settings')"><i class="bi bi-gear"></i> Pengaturan</a>
+
+<!-- ADD THIS: Container untuk plugin menus -->
+<div id="pluginNavSection"></div>
+
+<div class="nav-section">Akun</div>
         <a class="nav-link" onclick="showPage('admins')"><i class="bi bi-people"></i> Admin Users</a>
         <a class="nav-link" onclick="showPage('api-keys')"><i class="bi bi-key"></i> API Keys</a>
     </div>
@@ -282,7 +288,9 @@
             </div>
         </div>
 
-    </div>
+            <!-- PLUGIN PAGES (Dynamic) -->
+        <div id="pluginPagesContainer"></div>
+	</div>
 </div>
 
 <!-- MODAL: Moderate -->
@@ -428,25 +436,106 @@ async function checkAuth() {
     if(!token) return false;
     try{const data=await api('GET','/auth/me');me=data.data.admin;return true;}catch{return false;}
 }
+
+
+<!-- Update function initAdmin - tambah navigation load -->
+
 function initAdmin() {
     document.getElementById('loginOverlay').style.display='none';
     document.getElementById('mainApp').style.display='flex';
     document.getElementById('adminInfo').textContent=(me?.name||'—')+' ('+me?.role+')';
     document.getElementById('adminNameTop').textContent=me?.name||'—';
+    
+    // Load plugin navigation
+    loadPluginNavigation();
+    
     showPage('dashboard');
 }
 
-// ── Navigation ─────────────────────────────────────────────────
+
+<!-- Update function showPage -->
+
 const PAGE_TITLES={dashboard:'Dashboard',reports:'Laporan',risk:'Risk Monitor',searches:'Log Pencarian',modules:'Modul',settings:'Pengaturan',admins:'Admin Users','api-keys':'API Keys'};
-function showPage(page) {
+
+function showPage(page, plugin = null, pluginPage = null) {
+    // For plugin pages
+    if (page === 'plugin' && plugin && pluginPage) {
+        loadPluginPage(plugin, pluginPage);
+        return;
+    }
+    
     document.querySelectorAll('.section-page').forEach(p=>p.classList.remove('active'));
     document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
-    const pg=document.getElementById('page-'+page); if(pg) pg.classList.add('active');
-    document.querySelectorAll('.nav-link').forEach(l=>{if(l.getAttribute('onclick')?.includes(`'${page}'`))l.classList.add('active');});
+    const pg=document.getElementById('page-'+page); 
+    if(pg) pg.classList.add('active');
+    
+    document.querySelectorAll('.nav-link').forEach(l=>{
+        if(l.getAttribute('onclick')?.includes(`'${page}'`))l.classList.add('active');
+    });
+    
     document.getElementById('pageTitle').textContent=PAGE_TITLES[page]||page;
     document.getElementById('sidebar').classList.remove('open');
-    ({dashboard:loadDashboard,reports:()=>loadReports(1),risk:()=>loadRisk(1),searches:()=>loadSearchLogs(1),modules:loadModules,settings:loadSettings,admins:loadAdmins,'api-keys':loadApiKeys})[page]?.();
+    
+    ({
+        dashboard:loadDashboard,
+        reports:()=>loadReports(1),
+        risk:()=>loadRisk(1),
+        searches:()=>loadSearchLogs(1),
+        modules:loadModules,
+        settings:loadSettings,
+        admins:loadAdmins,
+        'api-keys':loadApiKeys
+    })[page]?.();
 }
+
+// ── Load Plugin Page ───────────────────────────────────────────
+async function loadPluginPage(plugin, pluginPage) {
+    document.querySelectorAll('.section-page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+    
+    // Mark nav as active
+    document.querySelectorAll('.nav-link').forEach(l => {
+        if (l.getAttribute('onclick')?.includes(plugin)) l.classList.add('active');
+    });
+    
+    document.getElementById('pageTitle').textContent = pluginPage.replace(/-/g, ' ').toUpperCase();
+    document.getElementById('sidebar').classList.remove('open');
+    
+    // Load plugin page via iframe atau direct fetch
+    const container = document.getElementById('pluginPagesContainer');
+    container.innerHTML = `<div class="section-page active" id="plugin-page-${plugin}-${pluginPage}" style="display: block;"><div class="text-center py-5"><div class="spinner-border text-danger"></div></div></div>`;
+    
+    try {
+        // Fetch plugin page HTML
+        const response = await fetch(`/modules/${plugin}/admin/${pluginPage}.php`, {
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Plugin page not found');
+        }
+        
+        const html = await response.text();
+        document.getElementById(`plugin-page-${plugin}-${pluginPage}`).innerHTML = html;
+        
+        // Execute any scripts in the loaded HTML
+        const scripts = document.getElementById(`plugin-page-${plugin}-${pluginPage}`).querySelectorAll('script');
+        scripts.forEach(script => {
+            eval(script.textContent);
+        });
+        
+    } catch (e) {
+        document.getElementById(`plugin-page-${plugin}-${pluginPage}`).innerHTML = 
+            `<div class="alert alert-danger"><strong>Error:</strong> ${e.message}</div>`;
+    }
+}
+
+
+
+
+
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
 
 // ── Dashboard ──────────────────────────────────────────────────
@@ -761,6 +850,48 @@ async function submitAddApiKey(){
         toast('API key dibuat. Simpan sekarang!','success'); loadApiKeys();
     }catch(e){toast(e.message,'error');}
 }
+
+<!-- Update di bagian SCRIPT - tambah function baru -->
+
+// ── Plugin Navigation ──────────────────────────────────────────
+async function loadPluginNavigation() {
+    try {
+        const {data:{navigation}} = await api('GET', '/admin/navigation');
+        
+        // Filter plugin items
+        const pluginItems = navigation.filter(item => item.plugin);
+        
+        if (pluginItems.length === 0) {
+            document.getElementById('pluginNavSection').innerHTML = '';
+            return;
+        }
+        
+        // Group by plugin
+        const pluginSection = {};
+        pluginItems.forEach(item => {
+            const plugin = item.plugin;
+            if (!pluginSection[plugin]) pluginSection[plugin] = [];
+            pluginSection[plugin].push(item);
+        });
+        
+        // Build navigation HTML
+        let html = '<div class="nav-section">Plugins</div>';
+        Object.entries(pluginSection).forEach(([plugin, items]) => {
+            items.forEach(item => {
+                const icon = item.icon || 'fa-puzzle-piece';
+                html += `<a class="nav-link" onclick="showPage('plugin', '${plugin}', '${item.url.split('page=')[1] || ''}')">
+                    <i class="fas ${icon}"></i> ${item.label}
+                </a>`;
+            });
+        });
+        
+        document.getElementById('pluginNavSection').innerHTML = html;
+    } catch (e) {
+        console.error('Load plugin navigation error:', e);
+    }
+}
+
+
 function copyNewKey(){navigator.clipboard.writeText(document.getElementById('newKeyValue').textContent).then(()=>toast('Key disalin','success'));}
 async function revokeApiKey(id,name){
     if(!confirm(`Revoke key "${name}"?`)) return;
@@ -768,8 +899,14 @@ async function revokeApiKey(id,name){
     catch(e){toast(e.message,'error');}
 }
 
+<!-- Update Boot section - tambah -->
+
 // ── Boot ───────────────────────────────────────────────────────
-(async()=>{if(token&&await checkAuth())initAdmin();})();
+(async()=>{
+    if(token && await checkAuth()) {
+        initAdmin();
+    }
+})();
 </script>
 </body>
 </html>
