@@ -2,6 +2,7 @@
 /**
  * ./core/ModuleManager.php
  * Module manager — load, enable, disable, hook system
+ * UPDATED: Pass HookManager ke boot method
  */
 
 class ModuleManager
@@ -21,6 +22,9 @@ class ModuleManager
     /** @var Database */
     private $db;
 
+    /** @var HookManager */
+    private $hookManager = null;
+
     private function __construct()
     {
         $this->db = Database::getInstance();
@@ -34,6 +38,14 @@ class ModuleManager
     }
 
     private function __clone() {}
+
+    /**
+     * Set HookManager instance
+     */
+    public function setHookManager(HookManager $hookManager): void
+    {
+        $this->hookManager = $hookManager;
+    }
 
     // ── Discovery ─────────────────────────────────────────────
     public function discoverModules(): array
@@ -112,7 +124,11 @@ class ModuleManager
             if (is_array($d)) $config = $d;
         }
 
-        if (method_exists($instance, 'boot')) $instance->boot($config);
+        // FIX: Pass both config and HookManager to boot method
+        if (method_exists($instance, 'boot')) {
+            $instance->boot($config, $this->hookManager);
+        }
+
         $this->loadedModules[$slug] = $instance;
         return true;
     }
@@ -143,6 +159,11 @@ class ModuleManager
         return $this->db->fetchAll("SELECT * FROM modules ORDER BY is_core DESC, name ASC");
     }
 
+    public function getModule(string $slug): ?array
+    {
+        return $this->db->fetchOne("SELECT * FROM modules WHERE slug = ?", [$slug]);
+    }
+
     public function getConfig(string $slug): array
     {
         if (!isset($this->moduleStatus[$slug])) return [];
@@ -154,6 +175,14 @@ class ModuleManager
     public function updateConfig(string $slug, array $cfg): bool
     {
         return (bool)$this->db->update('modules', ['config' => json_encode($cfg)], 'slug = ?', [$slug]);
+    }
+
+    /**
+     * Get module instance yang sudah loaded
+     */
+    public function getLoadedInstance(string $slug)
+    {
+        return $this->loadedModules[$slug] ?? null;
     }
 
     // ── Hooks ─────────────────────────────────────────────────
