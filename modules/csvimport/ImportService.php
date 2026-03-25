@@ -296,6 +296,23 @@ class ImportService
             return ['success' => false, 'error' => 'Session tidak ditemukan'];
         }
 
+        // Get reporter for the admin or fallback to System
+        $admin = $this->db->fetchOne("SELECT name, email FROM admins WHERE id = ?", [$adminId]);
+        
+        $reporterName = $admin ? $admin['name'] . ' (Admin)' : 'System Import';
+        $reporterEmail = $admin ? $admin['email'] : 'system@cek.resource.my.id';
+
+        $reporterId = $this->db->fetchColumn("SELECT id FROM reporters WHERE contact = ?", [$reporterEmail]);
+        if (!$reporterId) {
+            $reporterId = $this->db->insert('reporters', [
+                'name'         => $reporterName,
+                'contact'      => $reporterEmail,
+                'contact_type' => 'email',
+                'ip_address'   => '127.0.0.1',
+                'user_agent'   => 'CSV Import System'
+            ]);
+        }
+
         $result = [
             'success' => true,
             'total_submitted' => 0,
@@ -311,7 +328,7 @@ class ImportService
             $result['total_submitted']++;
 
             try {
-                $reportData = $this->normalizeToReport($record['parsed_data']);
+                $reportData = $this->normalizeToReport($record['parsed_data'], (int)$reporterId);
                 $reportData['created_by_import'] = 1;
                 $reportData['import_session_id'] = $session['session_id'];
 
@@ -339,21 +356,70 @@ class ImportService
         return $result;
     }
 
-    private function normalizeToReport(array $data): array
+    private function normalizeToReport(array $data, int $reporterId): array
     {
-        return [
-            'title' => $data['title'] ?? 'Laporan dari CSV Import',
-            'description' => $data['description'] ?? '',
-            'account_name' => $data['suspect_name'] ?? '',
-            'phones' => !empty($data['phones']) ? json_encode($data['phones']) : null,
-            'bank_account' => $data['bank_account'] ?? null,
-            'links' => !empty($data['links']) ? json_encode($data['links']) : null,
-            'modus' => !empty($data['modus']) ? json_encode($data['modus']) : null,
-            'keywords' => !empty($data['keywords']) ? json_encode($data['keywords']) : null,
-            'source_url' => $data['source_url'] ?? null,
-            'image_url' => $data['image_url'] ?? null,
-            'status' => 'pending',
-            'created_at' => date('Y-m-d H:i:s'),
+        $title = $data['title'] ?? 'Laporan dari CSV Import';
+        $description = $data['description'] ?? '';
+        
+        // Determine reported value and category
+        $reportedValue = '';
+        $categoryId = 10; // Default: Lainnya
+        
+        if (!empty($data['phones']) && is_array($data['phones'])) {
+            $reportedValue = $data['phones'][0];
+            $categoryId = 1; // Nomor Telepon
+        } elseif (!empty($data['bank_account'])) {
+            $reportedValue = $data['bank_account'];
+            $categoryId = 2; // Rekening Bank
+        }
+        
+        // If still empty, use title as fallback
+        if (empty($reportedValue)) {
+            $reportedValue = $title;
+        }
+
+        // Get category slug for normalization
+        $catSlugs = [
+            1 => 'phone',
+            2 => 'bank_account',
+            3 => 'dana',
+            4 => 'ovo',
+            5 => 'gopay',
+            6 => 'linkaja',
+            7 => 'shopeepay',
+            8 => 'email',
+            9 => 'social',
+            10 => 'other'
         ];
+        $slug = $catSlugs[$categoryId] ?? 'other';
+        $normalized = function_exists('normalize_value') ? normalize_value($reportedValue, $slug) : $reportedValue;
+
+        // Construct enriched description since many columns are missing in DB
+        $enrichedDesc = $description;
+        if (!empty($data['modus'])) {
+            $enrichedDesc .= "\n\nModus: " . (is_array($data['modus']) ? implode(', ', $data['modus']) : $data['modus']);
+        }
+        if (!empty($data['keywords'])) {
+            $enrichedDesc .= "\nKeywords: " . (is_array($data['keywords']) ? implode(', ', $data['keywords']) : $data['keywords']);
+        }
+        if (!empty($data['source_url'])) {
+            $enrichedDesc .= "\nSource: " . $data['source_url'];
+        }
+
+        $reportData = [
+            'ulid'                      => function_exists('generate_ulid') ? generate_ulid() : uniqid(),
+            'reporter_id'               => $reporterId,
+            'category_id'               => $categoryId,
+            'report_type_id'            => 1, // Default: Penipuan
+            'reported_value'            => $reportedValue,
+            'reported_value_normalized' => $normalized,
+            'title'                     => $title,
+            'description'               => $enrichedDesc,
+            'account_name'              => $data['suspect_name'] ?? '',
+            'status'                    => 'pending',
+            'created_at'                => date('Y-m-d H:i:s'),
+        ];
+        
+        return $reportData;
     }
 }
