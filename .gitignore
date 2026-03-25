@@ -1,2 +1,6 @@
 storage/logs/csvimport_routes.log
 storage/logs/plugin_route_match.log
+/storage/imports
+/storage/cache
+/storage/logs
+/storage/logs

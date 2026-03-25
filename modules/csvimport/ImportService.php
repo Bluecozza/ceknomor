@@ -136,7 +136,7 @@ class ImportService
     {
         if (empty($phonesStr)) return [];
 
-        $phones = array_map('trim', explode(',', $phonesStr));
+        $phones = preg_split('/[\s,]+/', $phonesStr, -1, PREG_SPLIT_NO_EMPTY);
         $normalized = [];
         
         foreach ($phones as $phone) {
@@ -144,7 +144,7 @@ class ImportService
             if ($norm) $normalized[] = $norm;
         }
 
-        return array_unique($normalized);
+                return array_values(array_unique($normalized));
     }
 
     private function normalizePhone(string $phone): ?string
@@ -264,6 +264,31 @@ class ImportService
         return true;
     }
 
+    public function bulkUpdateStatus(string $sessionId, string $action): bool
+    {
+        $session = $this->getImportSession($sessionId);
+        if (!$session) return false;
+
+        foreach ($session['data']['records'] as &$record) {
+            switch ($action) {
+                case 'approve_all':
+                    $record['status'] = 'approved';
+                    break;
+                case 'approve_valid':
+                    if (($record['status'] ?? 'pending') !== 'error') {
+                        $record['status'] = 'approved';
+                    }
+                    break;
+                case 'reject_all':
+                    $record['status'] = 'rejected';
+                    break;
+            }
+        }
+
+        file_put_contents($this->tempPath . '/' . $sessionId . '.json', json_encode($session, JSON_PRETTY_PRINT));
+        return true;
+    }
+
     public function submitImport(string $sessionId, int $adminId): array
     {
         $session = $this->getImportSession($sessionId);
@@ -319,7 +344,7 @@ class ImportService
         return [
             'title' => $data['title'] ?? 'Laporan dari CSV Import',
             'description' => $data['description'] ?? '',
-            'suspect_name' => $data['suspect_name'] ?? '',
+            'account_name' => $data['suspect_name'] ?? '',
             'phones' => !empty($data['phones']) ? json_encode($data['phones']) : null,
             'bank_account' => $data['bank_account'] ?? null,
             'links' => !empty($data['links']) ? json_encode($data['links']) : null,
