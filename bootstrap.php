@@ -53,8 +53,9 @@ set_exception_handler(function(Throwable $e) {
     if (class_exists('Response')) {
         if (defined('APP_DEBUG') && APP_DEBUG) {
             Response::error($e->getMessage(), 500, [
-                'file'  => $e->getFile(),
-                'line'  => $e->getLine(),
+                'original_file'  => $e->getFile(),
+                'original_line'  => $e->getLine(),
+                'original_trace' => $e->getTraceAsString(),
             ], 'INTERNAL_ERROR');
         } else {
             Response::error('Terjadi kesalahan internal.', 500, [], 'INTERNAL_ERROR');

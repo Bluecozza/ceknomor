@@ -148,7 +148,7 @@ $page_icon = 'fa-file-csv';
 
 <script>
 let currentSessionId = null;
-const API_URL = '/api/v1/plugins/csvimport';
+const API_URL = (typeof API !== 'undefined' ? API : '/api/v1') + '/plugins/csvimport';
 
 // Debug logger
 function debugLog(message, type = 'info', data = null) {
@@ -166,12 +166,13 @@ function debugLog(message, type = 'info', data = null) {
 }
 
 function getToken() {
-    return localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+    return localStorage.getItem('admin_token') || localStorage.getItem('token') || sessionStorage.getItem('token') || '';
 }
 
 // Upload handler
 document.getElementById('form-upload').addEventListener('submit', async (e) => {
     e.preventDefault();
+    e.stopPropagation();
     debugLog('Form submitted', 'info');
 
     const file = document.getElementById('csv-file').files[0];

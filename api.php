@@ -295,7 +295,7 @@ elseif ($method === 'GET' && $path === '/reports') {
 
 // ── POST /reports ──────────────────────────────────────────────
 elseif ($method === 'POST' && $path === '/reports') {
-    if (!check_rate_limit('report_' . get_client_ip(), 5, 3600)) Response::rateLimited(3600);
+    if (!check_rate_limit('report_' . get_client_ip(), 20, 300)) Response::rateLimited(300);
     $data = get_json_body();
     if (empty($data)) $data = $_POST;
 
@@ -836,7 +836,7 @@ elseif ($method === 'GET' && $path === '/admin/csvimport-logs') {
 }
 
 
-// ── 404 ────────────────────────────────────────────────────────
+// ── 404 ────────────────────────────────────────────────────────//
 else {
     Response::notFound('Endpoint tidak ditemukan: ' . $method . ' /api/v1' . $path);
 }

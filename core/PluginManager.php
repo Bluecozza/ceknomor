@@ -57,6 +57,8 @@ class PluginManager
             $manifest['path'] = $dir;
             $manifest['url'] = BASE_URL . '/modules/' . $slug;
 
+            error_log("PluginManager: Discovered plugin {$slug}");
+
             // Register di database
             $this->registerPlugin($slug, $manifest);
 
@@ -88,14 +90,21 @@ class PluginManager
                 ]);
             } else {
                 // Update existing (untuk reflect perubahan di module.json)
-                $this->db->update('plugins', [
+                $updateData = [
                     'name' => $manifest['name'] ?? $slug,
                     'description' => $manifest['description'] ?? '',
                     'version' => $manifest['version'] ?? '1.0.0',
                     'author' => $manifest['author'] ?? '',
                     'path' => $manifest['path'],
                     'updated_at' => date('Y-m-d H:i:s'),
-                ], 'slug = ?', [$slug]);
+                ];
+
+                // Force activate jika auto_enable true dan saat ini belum aktif
+                if (!empty($manifest['auto_enable']) && !$existing['is_active']) {
+                    $updateData['is_active'] = 1;
+                }
+
+                $this->db->update('plugins', $updateData, 'slug = ?', [$slug]);
             }
         } catch (Exception $e) {
             error_log("Plugin registration failed for {$slug}: " . $e->getMessage());
@@ -107,6 +116,45 @@ class PluginManager
  */
 public function loadAll(): void
 {
+    // Auto-migrate table if missing
+    if (!$this->db->tableExists('plugins')) {
+        $this->db->query("CREATE TABLE plugins (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) NOT NULL UNIQUE,
+            description LONGTEXT,
+            version VARCHAR(50),
+            author VARCHAR(255),
+            path VARCHAR(255),
+            config JSON,
+            is_active TINYINT(1) DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX(slug),
+            INDEX(is_active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // Migrate from old 'modules' table if exists
+        if ($this->db->tableExists('modules')) {
+            try {
+                $oldModules = $this->db->fetchAll("SELECT * FROM modules");
+                foreach ($oldModules as $old) {
+                    $this->db->insert('plugins', [
+                        'name' => $old['name'],
+                        'slug' => $old['slug'],
+                        'description' => $old['description'] ?? '',
+                        'version' => $old['version'] ?? '1.0.0',
+                        'author' => $old['author'] ?? '',
+                        'path' => $old['path'] ?? (MODULE_PATH . '/' . $old['slug']),
+                        'is_active' => $old['is_enabled'] ?? 1,
+                    ]);
+                }
+            } catch (Exception $e) {
+                error_log("Plugin migration from modules table failed: " . $e->getMessage());
+            }
+        }
+    }
+
     // First, discover all plugins
     $discovered = $this->discover();
     
@@ -172,7 +220,7 @@ public function loadAll(): void
 
             require_once $mainFile;
 
-            $className = ucfirst($slug) . 'Plugin';
+            $className = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $slug))) . 'Plugin';
             if (!class_exists($className)) {
                 throw new Exception("Plugin class not found: {$className}");
             }
@@ -189,13 +237,15 @@ public function loadAll(): void
 
             $this->loadedPlugins[$slug] = $pluginInstance;
 
+            error_log("PluginManager: Successfully loaded plugin {$slug}");
+
             // Trigger hook
             $this->hooks->trigger('plugin.loaded', $slug, $pluginInstance);
 
             return true;
 
-        } catch (Exception $e) {
-            error_log("Plugin load failed for {$slug}: " . $e->getMessage());
+        } catch (Throwable $e) {
+            error_log("Plugin load failed for [{$slug}]: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
             return false;
         }
     }

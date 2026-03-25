@@ -84,8 +84,8 @@ class AdminNavigation
             ],
         ];
 
-        // Trigger hook
-        $this->hooks->trigger('admin.menu.build', $this->items);
+        // Filter hook
+        $this->items = $this->hooks->filter('admin.menu.build', $this->items);
 
         // Add plugin menus
         $this->addPluginMenus();

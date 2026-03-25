@@ -4,6 +4,7 @@
     "description": "Modul untuk menghasilkan Open Graph tags dan link preview saat laporan dibagikan ke media sosial (WhatsApp, Telegram, Twitter, Facebook).",
     "version": "1.0.0",
     "author": "cek.resource.my.id",
+    "auto_enable": true,
     "is_core": false,
     "dependencies": [],
     "hooks": [

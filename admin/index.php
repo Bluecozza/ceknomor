@@ -423,7 +423,11 @@ async function doLogin() {
     try {
         const data=await api('POST','/auth/login',{email,password:pass});
         token=data.data.token; me=data.data.admin;
-        localStorage.setItem('admin_token',token); initAdmin();
+        localStorage.setItem('admin_token',token); 
+        if (me) {
+            localStorage.setItem('admin_user', JSON.stringify(me)); // Simpan data user
+        }
+        initAdmin();
     } catch(e) {
         err.textContent=e.message||'Login gagal.'; err.classList.remove('d-none');
         document.getElementById('loginBtn').disabled=false;
@@ -431,19 +435,45 @@ async function doLogin() {
     }
 }
 document.getElementById('loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-function doLogout(){localStorage.removeItem('admin_token');location.reload();}
+function doLogout(){
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user'); // Hapus data user saat logout
+    location.reload();
+}
 async function checkAuth() {
     if(!token) return false;
-    try{const data=await api('GET','/auth/me');me=data.data.admin;return true;}catch{return false;}
+    try{
+        const data=await api('GET','/auth/me');
+        me=data.data.admin;
+        if (me) {
+            localStorage.setItem('admin_user', JSON.stringify(me)); // Update cache data user
+        }
+        return true;
+    }catch{
+        // Jika gagal auth me, coba pakai cache jika ada (untuk UX cepat)
+        const cached = localStorage.getItem('admin_user');
+        if (cached && cached !== 'undefined') {
+            try { me = JSON.parse(cached); } catch(e) {}
+        }
+        return false;
+    }
 }
 
 
 <!-- Update function initAdmin - tambah navigation load -->
 
 function initAdmin() {
+    // Ambil dari me atau fallback ke localStorage
+    if (!me) {
+        const cached = localStorage.getItem('admin_user');
+        if (cached && cached !== 'undefined') {
+            try { me = JSON.parse(cached); } catch(e) {}
+        }
+    }
+
     document.getElementById('loginOverlay').style.display='none';
     document.getElementById('mainApp').style.display='flex';
-    document.getElementById('adminInfo').textContent=(me?.name||'—')+' ('+me?.role+')';
+    document.getElementById('adminInfo').textContent=(me?.name||'—')+' ('+(me?.role||'—')+')';
     document.getElementById('adminNameTop').textContent=me?.name||'—';
     
     // Load plugin navigation
@@ -453,11 +483,15 @@ function initAdmin() {
 }
 
 
-<!-- Update function showPage -->
+// Update function showPage //
 
 const PAGE_TITLES={dashboard:'Dashboard',reports:'Laporan',risk:'Risk Monitor',searches:'Log Pencarian',modules:'Modul',settings:'Pengaturan',admins:'Admin Users','api-keys':'API Keys'};
 
 function showPage(page, plugin = null, pluginPage = null) {
+    // Clear plugin pages when showing core pages
+    const pluginContainer = document.getElementById('pluginPagesContainer');
+    if (pluginContainer) pluginContainer.innerHTML = '';
+
     // For plugin pages
     if (page === 'plugin' && plugin && pluginPage) {
         loadPluginPage(plugin, pluginPage);
@@ -523,7 +557,12 @@ async function loadPluginPage(plugin, pluginPage) {
         }
         
         const html = await response.text();
-        document.getElementById(pageId).innerHTML = html;
+        const containerEl = document.getElementById(pageId);
+        containerEl.innerHTML = '';
+        const range = document.createRange();
+        range.selectNode(containerEl);
+        const fragment = range.createContextualFragment(html);
+        containerEl.appendChild(fragment);
         
     } catch (e) {
         console.error('Load plugin page error:', e);
@@ -853,15 +892,17 @@ async function submitAddApiKey(){
     }catch(e){toast(e.message,'error');}
 }
 
-<!-- Update di bagian SCRIPT - tambah function baru -->
+// Update di bagian SCRIPT - tambah function baru //
 
 // ── Plugin Navigation ──────────────────────────────────────────
 async function loadPluginNavigation() {
     try {
         const {data:{navigation}} = await api('GET', '/admin/navigation');
+        console.log('Admin Navigation Data:', navigation);
         
         // Filter plugin items
         const pluginItems = navigation.filter(item => item.plugin);
+        console.log('Plugin Navigation Items:', pluginItems);
         
         if (pluginItems.length === 0) {
             document.getElementById('pluginNavSection').innerHTML = '';
@@ -880,9 +921,10 @@ async function loadPluginNavigation() {
         let html = '<div class="nav-section">Plugins</div>';
         Object.entries(pluginSection).forEach(([plugin, items]) => {
             items.forEach(item => {
-                const icon = item.icon || 'fa-puzzle-piece';
+                const icon = item.icon || 'bi-puzzle';
+                const iconClass = icon.startsWith('bi-') ? `bi ${icon}` : `fas ${icon}`;
                 html += `<a class="nav-link" onclick="showPage('plugin', '${plugin}', '${item.url.split('page=')[1] || ''}')">
-                    <i class="fas ${icon}"></i> ${item.label}
+                    <i class="${iconClass}"></i> ${item.label}
                 </a>`;
             });
         });
@@ -901,14 +943,22 @@ async function revokeApiKey(id,name){
     catch(e){toast(e.message,'error');}
 }
 
-<!-- Update Boot section - tambah -->
+// Update Boot section - tambah //
 
 // ── Boot ───────────────────────────────────────────────────────
 (async()=>{
-    if(token && await checkAuth()) {
+    if(token) {
+        // Inisialisasi UI admin segera jika token ada (optimistic UI)
         initAdmin();
+        
+        // Kemudian verifikasi di background
+        const isValid = await checkAuth();
+        if (!isValid) {
+            doLogout();
+        }
     }
 })();
 </script>
 </body>
 </html>
+

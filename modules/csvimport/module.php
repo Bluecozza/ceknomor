@@ -28,7 +28,6 @@ class CsvimportPlugin
 
         // Register hooks
         $hooks = HookManager::getInstance();
-        $hooks->subscribe('admin.menu.build', [$this, 'onMenuBuild'], 10);
     }
 
     /**
@@ -45,23 +44,12 @@ class CsvimportPlugin
         return [
             [
                 'label' => $menu['title'] ?? 'CSV Import',
-                'icon' => $menu['icon'] ?? 'fa-puzzle-piece',
+                'icon' => $menu['icon'] ?? 'fa-file-csv',
                 'url' => '/admin?plugin=' . $this->slug . '&page=import-csv',
                 'permission' => ['superadmin', 'admin'],
                 'position' => $menu['position'] ?? 50
             ]
         ];
-    }
-
-    /**
-     * Hook callback for admin menu build
-     */
-    public function onMenuBuild(&$items): void
-    {
-        $menus = $this->getAdminMenu();
-        foreach ($menus as $menu) {
-            $items[] = $menu;
-        }
     }
 
     /**

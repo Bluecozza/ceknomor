@@ -56,7 +56,7 @@ class ReportService
         $this->logSearch($query, $normalized, $categorySlug, $count);
 
         // Hook
-        ModuleManager::getInstance()->triggerHook('search.performed', [
+        HookManager::getInstance()->trigger('search.performed', [
             'query'      => $query,
             'normalized' => $normalized,
             'category'   => $categorySlug,
@@ -151,7 +151,7 @@ class ReportService
 
             if ($autoOk) $this->updateRiskScore($normalized, (int)$data['category_id']);
 
-            ModuleManager::getInstance()->triggerHook('report.created', [
+            HookManager::getInstance()->trigger('report.created', [
                 'report_id'   => $reportId,
                 'ulid'        => $ulid,
                 'category_id' => (int)$data['category_id'],
@@ -405,3 +405,4 @@ class ReportService
         }
     }
 }
+

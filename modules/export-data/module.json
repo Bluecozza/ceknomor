@@ -1,0 +1,15 @@
+{
+  "name": "Export Data Plugin",
+  "slug": "export-data",
+  "description": "Export reports and search logs to CSV or XML formats with advanced filtering",
+  "version": "1.0.0",
+  "author": "cek.resource.my.id",
+  "auto_enable": true,
+  "admin_menu": {
+    "title": "Export Data",
+    "icon": "bi-download",
+    "position": 51
+  },
+  "permissions": ["superadmin", "admin"]
+}
+
